@@ -6,8 +6,9 @@
 
 - 공개 전 전체 검사 재실행: 타입 검사, 21개 테스트, 프론트엔드/PWA 및 Worker 빌드 통과.
 - VAPID와 구독 암호화 키는 Git에서 제외된 `worker/.dev.vars`에 생성했습니다.
-- Worker 게시: Cloudflare 계정 이메일 인증 요구(10034)로 대기 중.
-- GitHub Pages 게시: GitHub CLI 패스키 본인 확인 완료 대기 중.
+- Cloudflare 이메일: 만료된 링크를 재발급해 인증 성공 메시지 확인.
+- Worker 게시: `https://water-together-api.water-worker.workers.dev`, 5분 Cron 및 4개 비밀 키 등록 완료.
+- GitHub 인증과 공개 저장소 생성 완료. Pages를 Actions 방식으로 활성화하고 API 주소·D1 ID·허용 출처 변수 등록.
 - 로컬 키와 CLI 파일은 `.gitignore`로 제외됨을 확인했습니다.
 
 ## 앱 디자인 변경 검증
