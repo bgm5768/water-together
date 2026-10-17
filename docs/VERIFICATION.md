@@ -1,6 +1,6 @@
 # 구현 검증 기록
 
-## 원격 배포 준비
+## 실서비스 배포 검증
 
 2026-10-18: Cloudflare 공식 Wrangler OAuth 연결 완료. APAC 리전에 `water-together` D1 데이터베이스를 생성하고 `0001_initial.sql`의 21개 명령을 적용했습니다. 허용 출처는 `https://bgm5768.github.io`로 설정했습니다.
 
@@ -10,6 +10,14 @@
 - Worker 게시: `https://water-together-api.water-worker.workers.dev`, 5분 Cron 및 4개 비밀 키 등록 완료.
 - GitHub 인증과 공개 저장소 생성 완료. Pages를 Actions 방식으로 활성화하고 API 주소·D1 ID·허용 출처 변수 등록.
 - 로컬 키와 CLI 파일은 `.gitignore`로 제외됨을 확인했습니다.
+- GitHub Actions CI 및 Pages 배포 성공. 앱: https://bgm5768.github.io/water-together/
+- 공개 API `/api/health` 200, 정확한 CORS 출처 및 `Cache-Control: no-store` 확인.
+- 실제 D1에서 임시 2인 공간 생성·참여, 200/350ml 저장과 조회, 같은 요청 키의 중복 저장 방지, 미인증 요청 401 확인.
+- 공개 브라우저에서 임시 공간 복구와 200ml 추가 저장 → 본인 합계 400ml 확인. 브라우저 오류·경고 0건.
+- 390×844 모바일 뷰포트에서 가로 넘침 없음. Manifest의 시작·범위 경로, standalone 표시와 Service Worker 응답 200 확인.
+- 검증용 데이터 정리 후 첫 시작 화면으로 복귀. 실제 사용자 기록은 테스트에 사용하지 않았습니다.
+
+![실서비스 모바일 화면 — 검증용 데이터](screenshots/production.png)
 
 ## 앱 디자인 변경 검증
 
@@ -57,11 +65,10 @@ Codex 내장 브라우저의 localhost production preview와 로컬 Wrangler API
 
 ## 수행하지 않은 검증
 
-- GitHub Actions의 실제 원격 실행 및 GitHub Pages 게시
-- Cloudflare 원격 D1 마이그레이션, Worker 배포, 실제 무료 플랜 CPU 측정
+- 실제 무료 플랜 요청별 CPU 측정
 - 실제 VAPID 키로 외부 푸시 서비스에 전송
 - Android 기기의 PWA 설치, 화면 잠금/절전/앱 종료 시 수신
-- 휴대폰 실제 화면 크기의 브라우저 시각 검사
+- 실제 휴대폰에서의 시각 검사 (브라우저 모바일 뷰포트 검증만 완료)
 
 자동 테스트는 로컬 workerd + D1을 사용하며 푸시 공급자 응답은 모의 처리합니다. 실제 기기 수신 결과는 [Android 체크리스트](ANDROID-TEST.md)에 따로 기록해야 합니다.
 
