@@ -1,0 +1,109 @@
+import { dayBounds, dueSlot, localDate, windowOpen } from '../../shared/time';
+import { readSettings, settingsFrom, type Env, type SettingsRow } from './models';
+import { sendPush, pushConfigured, type Device } from './push';
+import type { Settings } from '../../shared/types';
+async function reached(env: Env, user: string, s: Settings, now: number) {
+  if (!s.stop_when_goal_reached) return false;
+  const b = dayBounds(localDate(now, s.timezone), s.timezone);
+  const r = await env.DB.prepare(
+    'SELECT COALESCE(SUM(amount_ml),0) total FROM water_logs WHERE user_id=? AND consumed_at>=? AND consumed_at<?',
+  )
+    .bind(user, b.start, b.end)
+    .first<{ total: number }>();
+  return (r?.total || 0) >= s.daily_goal_ml;
+}
+async function deliver(env: Env, device: Device, id: string, attempt: number, now: number) {
+  const result = await sendPush(env, device);
+  const stamp = new Date(now).toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE notification_delivery_logs SET status=?,sent_at=?,retry_at=?,updated_at=? WHERE id=? AND status='sending'",
+    ).bind(
+      result === 'retry' && attempt >= 3 ? 'failed' : result,
+      result === 'accepted' ? stamp : null,
+      result === 'retry' && attempt < 3 ? new Date(now + 5 * 60000).toISOString() : null,
+      stamp,
+      id,
+    ),
+    env.DB.prepare(
+      "UPDATE push_subscriptions SET last_sent_at=CASE WHEN ?='accepted' THEN ? ELSE last_sent_at END,revoked_at=CASE WHEN ?='expired' THEN ? ELSE revoked_at END WHERE id=?",
+    ).bind(result, stamp, result, stamp, device.id),
+  ]);
+}
+export async function scheduled(env: Env, now = Date.now()) {
+  if (!pushConfigured(env)) return;
+  const stamp = new Date(now).toISOString();
+  // Recover bookkeeping, never re-send a claimed request with unknown outcome.
+  await env.DB.prepare(
+    "UPDATE notification_delivery_logs SET status='unknown',updated_at=? WHERE status='sending' AND updated_at<?",
+  )
+    .bind(stamp, new Date(now - 15 * 60000).toISOString())
+    .run();
+  const users = await env.DB.prepare(
+    'SELECT * FROM notification_settings n WHERE enabled=1 AND EXISTS(SELECT 1 FROM push_subscriptions p WHERE p.user_id=n.user_id AND p.revoked_at IS NULL)',
+  ).all<SettingsRow>();
+  for (const row of users.results) {
+    const s = settingsFrom(row),
+      slot = dueSlot(now, s);
+    if (slot === null || (await reached(env, row.user_id, s, now))) continue;
+    const devices = await env.DB.prepare(
+      'SELECT id,user_id,encrypted_subscription_data FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
+    )
+      .bind(row.user_id)
+      .all<Device>();
+    for (const device of devices.results) {
+      const id = crypto.randomUUID();
+      const claim = await env.DB.prepare(
+        "INSERT INTO notification_delivery_logs(id,user_id,subscription_id,scheduled_at,status,idempotency_key,updated_at) VALUES(?,?,?,?,'sending',?,?) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id",
+      )
+        .bind(
+          id,
+          row.user_id,
+          device.id,
+          new Date(slot).toISOString(),
+          `${device.id}:${slot}`,
+          stamp,
+        )
+        .first();
+      if (claim) await deliver(env, device, id, 1, now);
+    }
+  }
+  const retries = await env.DB.prepare(
+    "SELECT d.id delivery_id,d.attempts,d.scheduled_at,p.* FROM notification_delivery_logs d JOIN push_subscriptions p ON p.id=d.subscription_id WHERE d.status='retry' AND d.retry_at<=? AND p.revoked_at IS NULL LIMIT 12",
+  )
+    .bind(stamp)
+    .all<Device & { delivery_id: string; attempts: number; scheduled_at: string }>();
+  for (const r of retries.results) {
+    const s = await readSettings(env.DB, r.user_id);
+    if (
+      !windowOpen(now, s) ||
+      now - Date.parse(r.scheduled_at) > 15 * 60000 ||
+      (await reached(env, r.user_id, s, now))
+    ) {
+      await env.DB.prepare(
+        "UPDATE notification_delivery_logs SET status='cancelled',updated_at=? WHERE id=? AND status='retry'",
+      )
+        .bind(stamp, r.delivery_id)
+        .run();
+      continue;
+    }
+    const claim = await env.DB.prepare(
+      "UPDATE notification_delivery_logs SET status='sending',attempts=attempts+1,updated_at=? WHERE id=? AND status='retry' AND attempts=? RETURNING id",
+    )
+      .bind(stamp, r.delivery_id, r.attempts)
+      .first();
+    if (claim) await deliver(env, r, r.delivery_id, r.attempts + 1, now);
+  }
+  // At most once per UTC day; old idempotency keys cannot match current slots.
+  if (new Date(now).getUTCHours() === 3 && new Date(now).getUTCMinutes() < 5) {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM rate_limits WHERE expires_at<?').bind(now),
+      env.DB.prepare('DELETE FROM notification_delivery_logs WHERE updated_at<?').bind(
+        new Date(now - 30 * 86400000).toISOString(),
+      ),
+      env.DB.prepare('DELETE FROM sessions WHERE expires_at<? OR revoked_at IS NOT NULL').bind(
+        stamp,
+      ),
+    ]);
+  }
+}

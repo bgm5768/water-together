@@ -1,0 +1,37 @@
+{
+  "name": "water-together",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "worker"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "dev:worker": "npm run dev -w worker",
+    "build": "npm run build -w frontend && npm run build -w worker",
+    "typecheck": "tsc -p frontend/tsconfig.json && tsc -p worker/tsconfig.json",
+    "test": "tsx --test worker/test/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "keys": "node scripts/generate-keys.mjs",
+    "db:local": "npm run db:local -w worker"
+  },
+  "dependencies": {
+    "luxon": "^3.7.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261016.1",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.11",
+    "miniflare": "^4.20251014.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.151.1"
+  }
+}

@@ -1,0 +1,4 @@
+VAPID_PUBLIC_KEY=generate-with-npm-run-keys
+VAPID_PRIVATE_KEY=generate-with-npm-run-keys
+VAPID_SUBJECT=mailto:your-real-email@example.com
+SUBSCRIPTION_KEY=generate-with-npm-run-keys

@@ -1,0 +1,19 @@
+name = "water-together-api"
+main = "src/index.ts"
+compatibility_date = "2025-10-14"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://bgm5768.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "water-together"
+database_id = "146432d7-ea69-4fb4-acf8-34d989f596e8"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[observability]
+enabled = false
