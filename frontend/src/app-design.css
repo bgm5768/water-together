@@ -585,6 +585,295 @@ body {
   height: 235px;
   pointer-events: none;
 }
+.cup-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.drink-controls {
+  padding-bottom: 22px;
+}
+.drink-sheet {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(100%, 480px);
+  height: 100dvh;
+  max-width: 100%;
+  max-height: 100dvh;
+  padding: 0;
+  border: 0;
+  color: #1b2942;
+  background: #f7f9ff;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.drink-sheet::backdrop {
+  background: #19375880;
+  backdrop-filter: blur(6px);
+}
+.drink-sheet[open] {
+  animation: panel-enter 0.25s ease-out;
+}
+.drink-sheet-content {
+  min-height: 100%;
+  padding: max(24px, env(safe-area-inset-top)) 26px max(22px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+}
+.drink-sheet-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drink-sheet-header span {
+  color: #7c91af;
+  font-size: 11px;
+}
+.drink-sheet-header h2 {
+  margin: 5px 0 0;
+  font-size: 23px;
+  letter-spacing: -0.8px;
+}
+.drink-tip {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+  background: #e9f1ff;
+  border-radius: 20px;
+  color: #526d96;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.drink-tip > svg {
+  flex-shrink: 0;
+  color: #539bf1;
+}
+.drink-tip strong {
+  color: #347fe0;
+}
+.measure-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+  padding: 14px 0 0;
+}
+.measure-mug {
+  position: relative;
+  width: 210px;
+  margin-right: 24px;
+}
+.mug-handle {
+  position: absolute;
+  right: -45px;
+  top: 24%;
+  width: 65px;
+  height: 50%;
+  border: 22px solid #dee6f5;
+  border-radius: 44px;
+}
+.mug-slider {
+  height: clamp(210px, 32dvh, 300px);
+  position: relative;
+  background: #e0e6f4;
+  border-radius: 32px 32px 55px 55px;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: none;
+  user-select: none;
+  cursor: ns-resize;
+  -webkit-tap-highlight-color: transparent;
+}
+.mug-slider:focus-visible {
+  outline: 3px solid #276bce;
+  outline-offset: 5px;
+}
+.mug-liquid {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(160deg, #5ca6ff, #337eed);
+  pointer-events: none;
+}
+.mug-surface {
+  position: absolute;
+  top: -15px;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  overflow: visible;
+}
+.mug-surface path {
+  fill: #5ca6ff;
+  animation: water-flow 7s linear infinite;
+}
+.mug-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mug-ticks i {
+  position: absolute;
+  left: 16px;
+  width: 12px;
+  border-top: 1px solid #ffffffb8;
+}
+.mug-ticks span {
+  position: absolute;
+  left: 18px;
+  top: -7px;
+  color: #254b7f;
+  font: 10px system-ui;
+  opacity: 0.7;
+}
+.mug-drag-grip {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  width: 49px;
+  height: 49px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: #4fc3cb;
+  border: 3px solid #ffffff4d;
+  border-radius: 50%;
+  box-shadow: 0 5px 20px #2875ad20;
+  pointer-events: none;
+}
+.water-type {
+  padding: 7px 15px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 24px;
+  background: #e5f0ff;
+  color: #348fe8;
+  font-size: 13px;
+  font-weight: 700;
+}
+.drink-amount-field {
+  text-align: center;
+}
+.drink-amount-field > div {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 7px;
+}
+.drink-amount-field input {
+  width: 185px;
+  border: 0;
+  border-bottom: 4px solid #dce6f8;
+  border-radius: 0;
+  padding: 0 0 5px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 62px;
+  line-height: 1.2;
+  letter-spacing: -3px;
+  font-weight: 750;
+  color: #152848;
+  text-align: center;
+  appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.drink-amount-field input::-webkit-inner-spin-button,
+.drink-amount-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.drink-amount-field input:focus {
+  outline: none;
+  border-color: #5b9ef3;
+}
+.drink-amount-field > div > span {
+  font-size: 24px;
+  font-weight: 650;
+}
+.drink-amount-field svg {
+  color: #a4bbdf;
+}
+.drink-amount-field p {
+  color: #8b9cb5;
+  font-size: 11px;
+  margin: 10px 0 0;
+}
+.drink-confirm {
+  width: 100%;
+  max-width: 320px;
+  min-height: 65px;
+  border: 0;
+  border-radius: 38px;
+  background: linear-gradient(100deg, #319bff, #1266ef);
+  box-shadow: 0 10px 25px #267fe333;
+  color: white;
+  font-size: 20px;
+  font-weight: 750;
+  gap: 9px;
+}
+.drink-confirm:hover:not(:disabled) {
+  background: linear-gradient(100deg, #238ef4, #095bdc);
+}
+.drink-confirm:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.drink-default-note {
+  margin: -4px 0 0;
+  font-size: 10px;
+  color: #8a9bb3;
+  text-align: center;
+}
+.drink-save-error {
+  width: 100%;
+  padding: 12px;
+  margin: 0;
+  background: #fff0eb;
+  color: #a84430;
+  border-radius: 12px;
+  font-size: 13px;
+}
+@media (max-height: 700px) {
+  .drink-sheet-content {
+    gap: 14px;
+    padding-top: 16px;
+  }
+  .measure-area {
+    gap: 14px;
+    padding-top: 0;
+  }
+  .mug-slider {
+    height: 195px;
+  }
+  .drink-amount-field input {
+    font-size: 49px;
+  }
+  .drink-confirm {
+    min-height: 56px;
+  }
+}
 .water-landscape > svg {
   width: 100%;
   height: 100%;

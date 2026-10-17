@@ -1,6 +1,6 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import {
   generateKeyPairSync,
   randomBytes,
@@ -49,8 +49,12 @@ before(async () => {
     },
   });
   db = await mf.getD1Database('DB');
-  const sql = await readFile('worker/migrations/0001_initial.sql', 'utf8');
-  for (const part of sql.split('-- statement')) if (part.trim()) await db.prepare(part).run();
+  for (const file of (await readdir('worker/migrations'))
+    .filter((f) => f.endsWith('.sql'))
+    .sort()) {
+    const sql = await readFile('worker/migrations/' + file, 'utf8');
+    for (const part of sql.split('-- statement')) if (part.trim()) await db.prepare(part).run();
+  }
 });
 after(async () => {
   await mf?.dispose();
@@ -143,6 +147,38 @@ test('create, authenticate, safe hashes, and invalid token', async () => {
     .first<{ token_hash: string }>();
   assert.notEqual(session?.token_hash, a.token);
   assert.equal(me.headers.get('cache-control'), 'no-store');
+});
+
+test('default cup persists per user, survives old clients, and rejects invalid amounts', async () => {
+  const { a, b } = await pair();
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, a.token)).data.settings.default_drink_ml,
+    200,
+  );
+  const settings = { ...defaults, default_drink_ml: 337 };
+  assert.equal(
+    (await request('/api/settings', 'PUT', settings, a.token)).data.default_drink_ml,
+    337,
+  );
+  const { default_drink_ml: omitted, ...oldClient } = defaults;
+  assert.equal(
+    (await request('/api/settings', 'PUT', oldClient, a.token)).data.default_drink_ml,
+    337,
+  );
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, a.token)).data.settings.default_drink_ml,
+    337,
+  );
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, b.token)).data.settings.default_drink_ml,
+    200,
+  );
+  for (const amount of [0, 3001, 1.5])
+    assert.equal(
+      (await request('/api/settings', 'PUT', { ...settings, default_drink_ml: amount }, a.token))
+        .status,
+      400,
+    );
 });
 test('join exactly two, reject third and invalid invite, no duplicate authenticated join', async () => {
   const { a, b } = await pair();

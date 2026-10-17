@@ -36,6 +36,7 @@ const settingsSchema = z
       .max(64)
       .refine((x) => IANAZone.isValidZone(x)),
     daily_goal_ml: z.number().int().min(100).max(10000),
+    default_drink_ml: z.number().int().min(1).max(3000).optional(),
   })
   .strict()
   .refine((x) => x.start_time !== x.end_time, {
@@ -371,7 +372,7 @@ async function route(req: Request, env: Env) {
     await env.DB.batch([
       stmt(
         env.DB,
-        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,updated_at=? WHERE user_id=?',
+        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),updated_at=? WHERE user_id=?',
         +s.enabled,
         s.start_time,
         s.end_time,
@@ -380,6 +381,7 @@ async function route(req: Request, env: Env) {
         +s.stop_when_goal_reached,
         s.timezone,
         s.daily_goal_ml,
+        s.default_drink_ml ?? null,
         now,
         actor.id,
       ),
@@ -390,7 +392,7 @@ async function route(req: Request, env: Env) {
         actor.id,
       ),
     ]);
-    return json(s);
+    return json(await readSettings(env.DB, actor.id));
   }
   if (path === '/api/push/subscribe' && method === 'POST') {
     if (!pushConfigured(env))

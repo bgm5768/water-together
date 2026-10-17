@@ -165,15 +165,31 @@ export function App() {
       setBusy(false);
     }
   }
-  async function add(n: number, when = new Date().toISOString(), key = crypto.randomUUID()) {
+  async function add(
+    n: number,
+    when = new Date().toISOString(),
+    key: string = crypto.randomUUID(),
+  ) {
     await api('/api/logs', 'POST', { amount_ml: n, consumed_at: when }, key);
     setNotice(`${fmt(n)}ml를 기록했어요.`);
     await refresh();
   }
+  async function addFromCup(n: number, when: string, key: string) {
+    if (mutation.current) throw new Error('다른 작업이 끝난 후 다시 시도해 주세요.');
+    mutation.current = true;
+    setBusy(true);
+    setNotice('');
+    try {
+      await add(n, when, key);
+    } finally {
+      mutation.current = false;
+      setBusy(false);
+    }
+  }
   function openEdit(log: WaterLog | 'new') {
     newLogKey.current = crypto.randomUUID();
     setEditing(log);
-    setAmount(log === 'new' ? '200' : String(log.amount_ml));
+    setAmount(log === 'new' ? String(me?.settings.default_drink_ml ?? 200) : String(log.amount_ml));
     setConsumed(
       log === 'new'
         ? DateTime.now().setZone(me!.settings.timezone).toFormat("yyyy-MM-dd'T'HH:mm")
@@ -303,8 +319,7 @@ export function App() {
                     setSaved(false);
                   })
                 }
-                onAdd={(n) => void run(() => add(n))}
-                onCustom={() => openEdit('new')}
+                onAdd={addFromCup}
                 onEdit={openEdit}
                 onDelete={setDeleting}
               />
@@ -537,6 +552,27 @@ export function App() {
                             />
                             <span>ml</span>
                           </div>
+                        </label>
+                        <label>
+                          기본 한 잔 용량
+                          <div className="input-unit">
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min="1"
+                              max="3000"
+                              step="1"
+                              required
+                              value={draft.default_drink_ml ?? 200}
+                              onChange={(event) =>
+                                setDraft({ ...draft, default_drink_ml: Number(event.target.value) })
+                              }
+                            />
+                            <span>ml</span>
+                          </div>
+                          <small className="field-hint">
+                            물 마시기를 열 때 이 양부터 시작해요. 매번 드래그로 조절할 수 있어요.
+                          </small>
                         </label>
                         <label className="check-row">
                           <input

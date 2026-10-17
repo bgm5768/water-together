@@ -32,6 +32,7 @@ export function settingsFrom(r: SettingsRow): Settings {
     stop_when_goal_reached: !!r.stop_when_goal_reached,
     timezone: r.timezone,
     daily_goal_ml: r.daily_goal_ml,
+    default_drink_ml: r.default_drink_ml ?? 200,
   };
 }
 export async function readSettings(db: D1Database, id: string) {

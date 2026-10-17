@@ -7,6 +7,7 @@ export interface Settings {
   stop_when_goal_reached: boolean;
   timezone: string;
   daily_goal_ml: number;
+  default_drink_ml: number;
 }
 export const defaults: Settings = {
   enabled: true,
@@ -17,6 +18,7 @@ export const defaults: Settings = {
   stop_when_goal_reached: true,
   timezone: 'Asia/Seoul',
   daily_goal_ml: 2000,
+  default_drink_ml: 200,
 };
 export interface WaterLog {
   id: string;

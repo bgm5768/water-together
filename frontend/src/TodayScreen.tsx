@@ -1,19 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
-import {
-  ArrowRight,
-  Bell,
-  Check,
-  ChevronDown,
-  Droplet,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Trash2,
-  Users,
-  X,
-} from 'lucide-react';
+import { ArrowRight, Bell, Droplet, Pencil, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
 import type { Me, Member, WaterLog } from '../../shared/types';
+import { DrinkSheet } from './DrinkSheet';
 
 interface Props {
   me: Me;
@@ -29,17 +18,15 @@ interface Props {
   onSettings: () => void;
   onHistory: () => void;
   onInvite: () => void;
-  onAdd: (amount: number) => void;
-  onCustom: () => void;
+  onAdd: (amount: number, when: string, key: string) => Promise<void>;
   onEdit: (log: WaterLog) => void;
   onDelete: (log: WaterLog) => void;
 }
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 
 export function TodayScreen(p: Props) {
-  const [cup, setCup] = useState(200);
+  const cup = p.me.settings.default_drink_ml ?? 200;
   const [choosing, setChoosing] = useState(false);
-  const picker = useRef<HTMLDialogElement>(null);
   const total = p.own?.total_ml;
   const previous = useRef({ total, day: p.today });
   const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
@@ -90,11 +77,6 @@ export function TodayScreen(p: Props) {
             .replace('AM', '오전')
             .replace('PM', '오후')
         : '예정 없음';
-
-  useEffect(() => {
-    if (choosing) picker.current?.showModal();
-    else picker.current?.close();
-  }, [choosing]);
 
   return (
     <div className="water-today">
@@ -243,12 +225,7 @@ export function TodayScreen(p: Props) {
         </div>
 
         <div className="drink-controls">
-          <button
-            className="cup-selector"
-            onClick={() => setChoosing(true)}
-            disabled={p.busy}
-            aria-label={`한 잔 용량 선택, 현재 ${cup}ml`}
-          >
+          <div className="cup-selector cup-preview" aria-hidden="true">
             <span className="cup-droplet">
               <Droplet size={15} fill="currentColor" />
             </span>
@@ -262,9 +239,8 @@ export function TodayScreen(p: Props) {
             <span className="cup-volume">
               {cup}
               <small> ml</small>
-              <ChevronDown size={15} />
             </span>
-          </button>
+          </div>
           <div
             className="water-progress"
             role="progressbar"
@@ -289,14 +265,11 @@ export function TodayScreen(p: Props) {
           <button
             className="drink-button"
             disabled={p.busy || !p.online || !p.own}
-            onClick={() => p.onAdd(cup)}
+            onClick={() => setChoosing(true)}
           >
             <Plus size={27} />
             <strong>{p.busy ? '저장하는 중…' : '물 마시기'}</strong>
-            <span>+{cup} ml</span>
-          </button>
-          <button className="direct-entry" disabled={p.busy || !p.online} onClick={p.onCustom}>
-            다른 양 직접 기록 <Pencil size={13} />
+            <span>양 조절하기</span>
           </button>
         </div>
         <div className="water-landscape" aria-hidden="true">
@@ -375,56 +348,14 @@ export function TodayScreen(p: Props) {
         <p className="today-zone">{p.me.settings.timezone} 기준</p>
       </section>
 
-      <dialog
-        ref={picker}
-        className="amount-sheet"
-        aria-labelledby="amount-title"
-        onCancel={() => setChoosing(false)}
-      >
-        <span className="sheet-handle" />
-        <div className="section-title">
-          <div>
-            <h2 id="amount-title">한 잔에 얼마나 마실까요?</h2>
-            <p>자주 마시는 컵의 용량을 선택해 주세요.</p>
-          </div>
-          <button
-            className="icon-button"
-            onClick={() => setChoosing(false)}
-            aria-label="용량 선택 닫기"
-          >
-            <X size={22} />
-          </button>
-        </div>
-        <div className="amount-options">
-          {[100, 150, 200, 250, 300, 500].map((n) => (
-            <button
-              key={n}
-              aria-pressed={cup === n}
-              className={cup === n ? 'selected' : ''}
-              onClick={() => {
-                setCup(n);
-                setChoosing(false);
-              }}
-            >
-              <Droplet size={25} />
-              <strong>
-                {n}
-                <small> ml</small>
-              </strong>
-              {cup === n && <Check size={15} className="amount-check" />}
-            </button>
-          ))}
-        </div>
-        <button
-          className="custom-button"
-          onClick={() => {
-            setChoosing(false);
-            p.onCustom();
-          }}
-        >
-          원하는 양 직접 입력 <Pencil size={15} />
-        </button>
-      </dialog>
+      {choosing && (
+        <DrinkSheet
+          initialAmount={cup}
+          online={p.online}
+          onClose={() => setChoosing(false)}
+          onSave={p.onAdd}
+        />
+      )}
     </div>
   );
 }

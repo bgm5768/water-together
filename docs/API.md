@@ -34,12 +34,14 @@
   "active_days": [1, 2, 3, 4, 5, 6, 7],
   "stop_when_goal_reached": true,
   "timezone": "Asia/Seoul",
-  "daily_goal_ml": 2000
+  "daily_goal_ml": 2000,
+  "default_drink_ml": 200
 }
 ```
 
 - active_days는 ISO 요일: 월=1, 일=7. 중복과 범위 오류 거부.
 - 간격은 30/45/60/90/120분, 목표는 정수 100~10,000ml.
+- 기본 한 잔 용량(default_drink_ml)은 정수 1~3,000ml. 기존 사용자 기본값은 200ml이며, 구버전 클라이언트가 필드를 생략하면 저장된 값을 유지합니다.
 - 섭취량은 정수 1~3,000ml, 소비 시각은 2020-01-01 이후·서버 현재 시각+1분 이내.
 - 닉네임은 trim 후 1~24자. UI는 텍스트로 렌더링.
 - user_id/group_id를 입력으로 받지 않음. 날짜 조회의 알 수 없는 쿼리 파라미터도 거부.
