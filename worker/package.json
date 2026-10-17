@@ -8,5 +8,8 @@
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 migrations apply water-together --local",
     "db:remote": "wrangler d1 migrations apply water-together --remote"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0"
   }
 }

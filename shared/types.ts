@@ -46,5 +46,6 @@ export interface Me {
   settings: Settings;
   subscription_count: number;
   next_notification: string | null;
+  next_amount_ml?: number | null;
   vapid_public_key: string | null;
 }

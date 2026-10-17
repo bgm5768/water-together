@@ -590,6 +590,277 @@ body {
   height: 100%;
   display: block;
 }
+.wave-flow {
+  animation: water-flow 14s linear infinite;
+}
+.wave-middle {
+  animation-duration: 10s;
+  animation-direction: reverse;
+}
+.wave-front {
+  animation-duration: 18s;
+}
+@keyframes water-flow {
+  to {
+    transform: translateX(-600px);
+  }
+}
+.water-landscape {
+  transition: height 1s ease;
+}
+.intake-hero {
+  position: relative;
+}
+.hero-number strong {
+  font-variant-numeric: tabular-nums;
+}
+.intake-splash {
+  position: absolute;
+  top: 43%;
+  right: 7%;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #2587da;
+  background: #ffffffea;
+  border-radius: 30px;
+  padding: 7px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: intake-rise 1.7s ease-out both;
+}
+@keyframes intake-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.8);
+  }
+  18%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-38px) scale(1.05);
+  }
+}
+.glass-water {
+  transition: height 0.45s ease;
+}
+.glass-water::before {
+  content: '';
+  position: absolute;
+  left: -30%;
+  top: -3px;
+  width: 160%;
+  height: 7px;
+  background: #96e6fb;
+  border-radius: 50%;
+  animation: glass-sway 3s ease-in-out infinite alternate;
+}
+@keyframes glass-sway {
+  from {
+    transform: rotate(-8deg) translateX(-2px);
+  }
+  to {
+    transform: rotate(8deg) translateX(2px);
+  }
+}
+.just-drank .drinking-glass {
+  animation: cup-cheer 0.65s ease-in-out;
+}
+@keyframes cup-cheer {
+  40% {
+    transform: translateY(-6px) rotate(-10deg);
+  }
+  70% {
+    transform: rotate(6deg);
+  }
+}
+.floating-drop {
+  animation: drift 6s ease-in-out infinite alternate;
+}
+.drop-b {
+  animation-delay: -3s;
+}
+@keyframes drift {
+  to {
+    transform: translate(7px, -15px);
+    opacity: 0.35;
+  }
+}
+.water-bubble {
+  position: absolute;
+  bottom: 10px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #ffffff60;
+  border-radius: 50%;
+  animation: bubble-rise 7s ease-in infinite;
+  opacity: 0;
+}
+.bubble-one {
+  left: 12%;
+}
+.bubble-two {
+  left: 82%;
+  width: 12px;
+  height: 12px;
+  animation-delay: -3s;
+}
+.bubble-three {
+  left: 58%;
+  animation-delay: -5s;
+}
+@keyframes bubble-rise {
+  15% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(18px, -135px);
+  }
+}
+.drink-button,
+.cup-selector,
+.metric-tile,
+.round-action {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+.drink-button:active:not(:disabled),
+.cup-selector:active:not(:disabled),
+.metric-tile:active {
+  transform: scale(0.96);
+}
+.partner-mini-track i {
+  transition: width 0.8s ease;
+}
+.today-log-panel .logs li {
+  animation: panel-enter 0.3s ease-out;
+}
+.amount-sheet[open],
+.settings-layout {
+  animation: panel-enter 0.3s ease-out;
+}
+@keyframes panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reminder-plan {
+  margin: 18px 0;
+  border: 1px solid #cfe2ff;
+  padding: 17px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #edf5ff, #f4fbff);
+}
+.plan-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #3f77ba;
+  font-size: 12px;
+  font-weight: 650;
+}
+.reminder-plan > strong {
+  display: block;
+  margin: 12px 0 8px;
+  font-size: 19px;
+  color: #234b7e;
+}
+.reminder-plan > strong span {
+  color: #8ba8cb;
+  font-weight: 400;
+}
+.reminder-plan p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #5d7492;
+  margin: 8px 0;
+}
+.reminder-plan > small {
+  font-size: 10px;
+  color: #6b819e;
+  display: block;
+  margin-top: 12px;
+}
+.plan-timeline {
+  display: flex;
+  gap: 13px;
+  overflow-x: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+}
+.plan-timeline > span {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  color: #5b7ea9;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.plan-timeline i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6eaaef;
+  box-shadow: 0 0 0 4px #dcebff;
+  margin: 4px;
+}
+.install-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.install-heading h2 {
+  margin: 0 0 5px;
+  font-size: 16px;
+}
+.install-heading p {
+  font-size: 11px;
+  color: #6d8099;
+  margin: 0;
+}
+.install-icon {
+  background: #e9f3ff;
+  color: #3c88df;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 49px;
+  height: 49px;
+}
+.install-help {
+  padding: 13px;
+  border-radius: 13px;
+  background: #edf5ff;
+  color: #365f92;
+  font-size: 13px;
+  line-height: 1.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave-flow,
+  .glass-water::before,
+  .water-bubble,
+  .floating-drop,
+  .intake-splash {
+    animation: none !important;
+  }
+  .water-bubble {
+    opacity: 0.35;
+  }
+}
 .wave-back {
   fill: #b8d6ff;
 }

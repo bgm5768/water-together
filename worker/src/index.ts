@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { DateTime, IANAZone } from 'luxon';
-import { dayBounds, localDate, nextSlot } from '../../shared/time';
+import { dayBounds, localDate, nextHydration } from '../../shared/time';
 import type { Member, WaterLog } from '../../shared/types';
 import { HttpError, secret, hash, encrypt, rate, validEndpoint, unb64 } from './security';
 import { readSettings, type Env, type Actor } from './models';
 import { pushConfigured, sendPush, type Device } from './push';
 import { scheduled } from './scheduler';
+import { intakeToday } from './reminders';
 
 const nameSchema = z.string().trim().min(1).max(24);
 const codeSchema = z
@@ -237,11 +238,17 @@ async function route(req: Request, env: Env) {
       'SELECT count(*) n FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
       actor.id,
     ).first<{ n: number }>();
+    const now = Date.now();
+    const next =
+      count?.n && pushConfigured(env)
+        ? nextHydration(now, settings, await intakeToday(env, actor.id, settings, now))
+        : null;
     return json({
       ...actor,
       settings,
       subscription_count: count?.n || 0,
-      next_notification: count?.n && pushConfigured(env) ? nextSlot(Date.now(), settings) : null,
+      next_notification: next?.at || null,
+      next_amount_ml: next?.amount_ml ?? null,
       vapid_public_key: pushConfigured(env) ? env.VAPID_PUBLIC_KEY : null,
     });
   }

@@ -1,7 +1,15 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { generateKeyPairSync, randomBytes, createPublicKey, verify } from 'node:crypto';
+import {
+  generateKeyPairSync,
+  randomBytes,
+  createPublicKey,
+  verify,
+  diffieHellman,
+  hkdfSync,
+  createDecipheriv,
+} from 'node:crypto';
 import { build } from 'esbuild';
 import { Miniflare, createFetchMock } from 'miniflare';
 import { defaults } from '../../shared/types';
@@ -373,39 +381,134 @@ test('encrypted subscriptions, vendor allowlist, ownership and unsubscribe', asy
   await request('/api/push/subscribe', 'DELETE', { endpoint: endpoint + 'device' }, a.token);
   assert.equal((await request('/api/me', 'GET', undefined, a.token)).data.subscription_count, 0);
 });
-test('scheduled concurrency deduplicates per device, VAPID signature valid', async () => {
+test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount decrypts for recipient', async () => {
   const a = await create();
-  await subscribe(a.token);
+  const sub = subscription();
+  assert.equal((await request('/api/push/subscribe', 'POST', sub, a.token)).status, 200);
   let calls = 0;
+  let validatePayload: Promise<void> | undefined;
   fetchMock
     .get('https://fcm.googleapis.com')
     .intercept({ path: '/fcm/send/device', method: 'POST' })
     .reply((options) => {
       calls++;
-      const headers = new Headers(options.headers as HeadersInit);
-      const authorization = headers.get('authorization')!;
-      assert.ok(authorization.startsWith('vapid t='));
-      const jwt = authorization.slice(8).split(',')[0],
-        parts = jwt.split('.');
-      const claim = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-      assert.equal(claim.aud, 'https://fcm.googleapis.com');
-      assert.equal(
-        verify(
+      validatePayload = (async () => {
+        const headers = new Headers(options.headers as HeadersInit);
+        const authorization = headers.get('authorization')!;
+        assert.ok(authorization.startsWith('vapid t='));
+        const jwt = authorization.slice(8).split(',')[0],
+          parts = jwt.split('.');
+        const claim = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+        assert.equal(claim.aud, 'https://fcm.googleapis.com');
+        assert.equal(
+          verify(
+            'sha256',
+            Buffer.from(parts[0] + '.' + parts[1]),
+            { key: createPublicKey(privateKey), dsaEncoding: 'ieee-p1363' },
+            Buffer.from(parts[2], 'base64url'),
+          ),
+          true,
+        );
+        assert.equal(headers.get('content-encoding'), 'aes128gcm');
+        assert.equal(headers.get('ttl'), '300');
+        const payload = Buffer.from(await new Response(options.body as BodyInit).arrayBuffer());
+        assert.equal(payload.length, 4096);
+        assert.equal(payload.includes(Buffer.from('이번에는 약')), false);
+        // Independently decrypt RFC 8291 using the recipient's private key.
+        const serverPublic = payload.subarray(21, 86);
+        const serverKey = createPublicKey({
+          format: 'jwk',
+          key: {
+            kty: 'EC',
+            crv: 'P-256',
+            x: serverPublic.subarray(1, 33).toString('base64url'),
+            y: serverPublic.subarray(33).toString('base64url'),
+          },
+        });
+        const shared = diffieHellman({ privateKey, publicKey: serverKey });
+        const keyInfo = Buffer.concat([
+          Buffer.from('WebPush: info\0'),
+          Buffer.from(publicKey, 'base64url'),
+          serverPublic,
+        ]);
+        const ikm = hkdfSync(
           'sha256',
-          Buffer.from(parts[0] + '.' + parts[1]),
-          { key: createPublicKey(privateKey), dsaEncoding: 'ieee-p1363' },
-          Buffer.from(parts[2], 'base64url'),
-        ),
-        true,
-      );
+          shared,
+          Buffer.from(sub.keys.auth, 'base64url'),
+          keyInfo,
+          32,
+        );
+        const salt = payload.subarray(0, 16);
+        const cek = hkdfSync(
+          'sha256',
+          Buffer.from(ikm),
+          salt,
+          Buffer.from('Content-Encoding: aes128gcm\0'),
+          16,
+        );
+        const nonce = hkdfSync(
+          'sha256',
+          Buffer.from(ikm),
+          salt,
+          Buffer.from('Content-Encoding: nonce\0'),
+          12,
+        );
+        const decipher = createDecipheriv('aes-128-gcm', Buffer.from(cek), Buffer.from(nonce));
+        decipher.setAuthTag(payload.subarray(-16));
+        const plain = Buffer.concat([decipher.update(payload.subarray(86, -16)), decipher.final()]);
+        let delimiter = plain.length - 1;
+        while (delimiter >= 0 && plain[delimiter] === 0) delimiter--;
+        assert.equal(plain[delimiter], 2);
+        const message = JSON.parse(plain.subarray(0, delimiter).toString());
+        assert.equal(message.title, '이번에는 약 154 ml 💧');
+        assert.match(message.body, /2,000 ml/);
+      })();
       return { statusCode: 201, data: '' };
     });
   await Promise.all([cron(scheduledAt), cron(scheduledAt)]);
   await cron(scheduledAt + 5 * 60000);
+  await validatePayload;
   assert.equal(calls, 1);
   const rows = await db.prepare('SELECT status FROM notification_delivery_logs').all();
   assert.equal(rows.results.length, 1);
   assert.equal(rows.results[0].status, 'accepted');
+});
+
+test('drinking ahead cancels a retry and suppresses the next scheduled push', async () => {
+  const a = await create();
+  await subscribe(a.token, 'ahead');
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/ahead', method: 'POST' })
+    .reply(503);
+  await cron(scheduledAt);
+  await log(a.token, 500, new Date(scheduledAt + 60000).toISOString());
+  await cron(scheduledAt + 5 * 60000);
+  await cron(scheduledAt + 60 * 60000);
+  const rows = await db.prepare('SELECT status FROM notification_delivery_logs').all();
+  assert.equal(rows.results.length, 1);
+  assert.equal(rows.results[0].status, 'cancelled');
+});
+
+test('a delayed overnight slot never uses the new calendar day intake', async () => {
+  const a = await create();
+  await subscribe(a.token, 'midnight');
+  await request(
+    '/api/settings',
+    'PUT',
+    {
+      ...defaults,
+      start_time: '23:58',
+      end_time: '01:00',
+      active_days: [1],
+    },
+    a.token,
+  );
+  await cron(Date.parse('2025-05-05T15:03:00Z'));
+  const result = await db
+    .prepare('SELECT count(*) n FROM notification_delivery_logs')
+    .first<{ n: number }>();
+  assert.equal(result?.n, 0);
 });
 test('disabled, achieved goal, inactive weekday and no subscription suppress cron', async () => {
   const a = await create();

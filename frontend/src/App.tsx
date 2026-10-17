@@ -24,6 +24,8 @@ import { localDate } from '../../shared/time';
 import { api, ApiError, session, vapidBytes } from './api';
 import { copy } from './copy';
 import { TodayScreen } from './TodayScreen';
+import { InstallApp } from './InstallApp';
+import { ReminderPlan } from './ReminderPlan';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -549,7 +551,7 @@ export function App() {
                         </label>
                         <div className="two-fields">
                           <label>
-                            시작 시각
+                            아침 · 알림 시작
                             <input
                               required
                               type="time"
@@ -558,7 +560,7 @@ export function App() {
                             />
                           </label>
                           <label>
-                            종료 시각
+                            취침 · 알림 종료
                             <input
                               required
                               type="time"
@@ -637,11 +639,13 @@ export function App() {
                           />
                           <span>하루 목표를 채우면 알림 쉬기</span>
                         </label>
+                        <ReminderPlan settings={draft} now={clock} />
                         <button className="primary" disabled={busy || !online}>
                           {busy ? '처리 중…' : '설정 저장'}
                         </button>
                       </form>
                       <div>
+                        <InstallApp />
                         <section className="card settings-card">
                           <h2>
                             <Bell size={20} /> 이 기기의 알림
@@ -680,8 +684,10 @@ export function App() {
                             </div>
                           </dl>
                           <p className="field-hint">
-                            설정 저장 후의 예정 시각이에요. 목표 달성 여부에 따라 생략되며, Cron
-                            실행으로 최대 약 5분 늦을 수 있어요.
+                            {me.next_amount_ml
+                              ? `다음에는 약 ${fmt(me.next_amount_ml)} ml를 안내해요. `
+                              : ''}
+                            기록에 따라 양과 시각이 달라져요. 실제 발송은 약 5분 늦을 수 있어요.
                           </p>
                           <button
                             className="primary"

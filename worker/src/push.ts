@@ -1,4 +1,5 @@
-import { b64, unb64, enc, decrypt, validEndpoint } from './security';
+import { buildPushPayload } from '@block65/webcrypto-web-push';
+import { decrypt, validEndpoint } from './security';
 import type { Env } from './models';
 export interface Subscription {
   endpoint: string;
@@ -10,7 +11,6 @@ export interface Device {
   encrypted_subscription_data: string;
 }
 export type PushResult = 'accepted' | 'expired' | 'retry' | 'failed' | 'unknown';
-const jwtCache = new Map<string, { token: string; until: number }>();
 export function pushConfigured(env: Env) {
   return !!(
     env.VAPID_PUBLIC_KEY &&
@@ -19,55 +19,34 @@ export function pushConfigured(env: Env) {
     env.SUBSCRIPTION_KEY
   );
 }
-async function authorization(endpoint: string, env: Env) {
-  const audience = new URL(endpoint).origin;
-  const now = Math.floor(Date.now() / 1000),
-    cacheKey = audience + env.VAPID_PUBLIC_KEY;
-  const cached = jwtCache.get(cacheKey);
-  if (cached && cached.until > now) return cached.token;
-  const pub = unb64(env.VAPID_PUBLIC_KEY!);
-  const key = await crypto.subtle.importKey(
-    'jwk',
-    {
-      kty: 'EC',
-      crv: 'P-256',
-      x: b64(pub.slice(1, 33)),
-      y: b64(pub.slice(33)),
-      d: env.VAPID_PRIVATE_KEY!,
-      ext: true,
-    },
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign'],
-  );
-  const input =
-    b64(enc.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))) +
-    '.' +
-    b64(enc.encode(JSON.stringify({ aud: audience, exp: now + 3600, sub: env.VAPID_SUBJECT })));
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    key,
-    enc.encode(input),
-  );
-  const token = `vapid t=${input}.${b64(new Uint8Array(signature))}, k=${env.VAPID_PUBLIC_KEY}`;
-  jwtCache.set(cacheKey, { token, until: now + 3000 });
-  return token;
-}
-export async function sendPush(env: Env, device: Device): Promise<PushResult> {
-  let sub: Subscription, auth: string;
+export async function sendPush(
+  env: Env,
+  device: Device,
+  message = {
+    title: '알림 연결 확인 💧',
+    body: '연결됐어요! 설정한 시간마다 남은 목표에 맞춰 마실 양을 알려드릴게요.',
+  },
+): Promise<PushResult> {
+  let sub: Subscription, payload: Awaited<ReturnType<typeof buildPushPayload>>;
   try {
     sub = await decrypt<Subscription>(device.encrypted_subscription_data, env.SUBSCRIPTION_KEY!);
     if (!validEndpoint(sub.endpoint)) return 'failed';
-    auth = await authorization(sub.endpoint, env);
+    // RFC 8291 encryption keeps the recommended amount private from the push provider.
+    payload = await buildPushPayload(
+      { data: JSON.stringify(message), options: { ttl: 300, urgency: 'normal' } },
+      { ...sub, expirationTime: null },
+      {
+        publicKey: env.VAPID_PUBLIC_KEY!,
+        privateKey: env.VAPID_PRIVATE_KEY!,
+        subject: env.VAPID_SUBJECT!,
+      },
+    );
   } catch {
     return 'failed';
   }
   try {
-    // RFC 8030 permits a bodyless push. Text is constant in the service worker;
-    // no personal hydration data crosses the push provider, no payload encryption needed.
     const res = await fetch(sub.endpoint, {
-      method: 'POST',
-      headers: { Authorization: auth, TTL: '300', Urgency: 'normal' },
+      ...payload,
       redirect: 'manual',
       signal: AbortSignal.timeout(12000),
     });
@@ -77,8 +56,7 @@ export async function sendPush(env: Env, device: Device): Promise<PushResult> {
     if (res.status === 429 || res.status >= 500) return 'retry';
     return 'failed';
   } catch {
-    // Network outcome is ambiguous: an accepted request may lose its response.
-    // Retrying it could produce a duplicate. Prefer an explicit unknown outcome.
+    // An ambiguous response must not cause a duplicate notification.
     return 'unknown';
   }
 }

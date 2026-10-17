@@ -58,3 +58,60 @@ export function nextSlot(now: number, s: Settings): string | null {
   }
   return Number.isFinite(best) ? new Date(best).toISOString() : null;
 }
+
+// Partition each local calendar day's goal, including slots from overnight windows.
+export function dailySlots(now: number, s: Settings): number[] {
+  const today = DateTime.fromMillis(now, { zone: s.timezone }).startOf('day');
+  if (
+    !s.enabled ||
+    !today.isValid ||
+    !s.start_time ||
+    !s.end_time ||
+    s.start_time === s.end_time ||
+    s.interval_minutes <= 0
+  )
+    return [];
+  const end = today.plus({ days: 1 }).toMillis();
+  const slots = new Set<number>();
+  for (const day of [today.minus({ days: 1 }), today]) {
+    const w = windowFor(day, s);
+    if (!w.active) continue;
+    for (let slot = w.start; slot < w.end; slot += s.interval_minutes * 60000)
+      if (slot >= today.toMillis() && slot < end) slots.add(slot);
+  }
+  return [...slots].sort((a, b) => a - b);
+}
+
+export function hydrationAt(slot: number, s: Settings, total: number) {
+  const slots = dailySlots(slot, s);
+  const index = slots.indexOf(slot);
+  return portionAt(index, slots.length, s, total);
+}
+
+function portionAt(index: number, count: number, s: Settings, total: number) {
+  if (index < 0) return null;
+  const remaining = Math.max(0, s.daily_goal_ml - total);
+  if (!remaining) return s.stop_when_goal_reached ? null : { amount_ml: 0, remaining_ml: 0 };
+  // Ahead of today's pace: stay quiet until the plan catches up.
+  if (total >= Math.ceil((s.daily_goal_ml * (index + 1)) / count)) return null;
+  return { amount_ml: Math.ceil(remaining / (count - index)), remaining_ml: remaining };
+}
+
+export function nextHydration(now: number, s: Settings, total: number) {
+  const date = localDate(now, s.timezone);
+  const start = DateTime.fromMillis(now, { zone: s.timezone });
+  for (let d = 0; d <= 8; d++) {
+    const slots = dailySlots(start.plus({ days: d }).toMillis(), s);
+    for (const [index, slot] of slots.entries()) {
+      if (slot < now) continue;
+      const plan = portionAt(
+        index,
+        slots.length,
+        s,
+        localDate(slot, s.timezone) === date ? total : 0,
+      );
+      if (plan) return { at: new Date(slot).toISOString(), ...plan };
+    }
+  }
+  return null;
+}

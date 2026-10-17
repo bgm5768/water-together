@@ -1,19 +1,16 @@
-import { dayBounds, dueSlot, localDate, windowOpen } from '../../shared/time';
+import { dueSlot, hydrationAt, localDate, windowOpen } from '../../shared/time';
 import { readSettings, settingsFrom, type Env, type SettingsRow } from './models';
 import { sendPush, pushConfigured, type Device } from './push';
-import type { Settings } from '../../shared/types';
-async function reached(env: Env, user: string, s: Settings, now: number) {
-  if (!s.stop_when_goal_reached) return false;
-  const b = dayBounds(localDate(now, s.timezone), s.timezone);
-  const r = await env.DB.prepare(
-    'SELECT COALESCE(SUM(amount_ml),0) total FROM water_logs WHERE user_id=? AND consumed_at>=? AND consumed_at<?',
-  )
-    .bind(user, b.start, b.end)
-    .first<{ total: number }>();
-  return (r?.total || 0) >= s.daily_goal_ml;
-}
-async function deliver(env: Env, device: Device, id: string, attempt: number, now: number) {
-  const result = await sendPush(env, device);
+import { intakeToday, reminderMessage } from './reminders';
+async function deliver(
+  env: Env,
+  device: Device,
+  id: string,
+  attempt: number,
+  now: number,
+  plan: { amount_ml: number; remaining_ml: number },
+) {
+  const result = await sendPush(env, device, reminderMessage(plan));
   const stamp = new Date(now).toISOString();
   await env.DB.batch([
     env.DB.prepare(
@@ -45,7 +42,9 @@ export async function scheduled(env: Env, now = Date.now()) {
   for (const row of users.results) {
     const s = settingsFrom(row),
       slot = dueSlot(now, s);
-    if (slot === null || (await reached(env, row.user_id, s, now))) continue;
+    if (slot === null || localDate(slot, s.timezone) !== localDate(now, s.timezone)) continue;
+    const plan = hydrationAt(slot, s, await intakeToday(env, row.user_id, s, now));
+    if (!plan) continue;
     const devices = await env.DB.prepare(
       'SELECT id,user_id,encrypted_subscription_data FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
     )
@@ -65,7 +64,7 @@ export async function scheduled(env: Env, now = Date.now()) {
           stamp,
         )
         .first();
-      if (claim) await deliver(env, device, id, 1, now);
+      if (claim) await deliver(env, device, id, 1, now, plan);
     }
   }
   const retries = await env.DB.prepare(
@@ -75,10 +74,13 @@ export async function scheduled(env: Env, now = Date.now()) {
     .all<Device & { delivery_id: string; attempts: number; scheduled_at: string }>();
   for (const r of retries.results) {
     const s = await readSettings(env.DB, r.user_id);
+    const slot = Date.parse(r.scheduled_at);
+    const plan = hydrationAt(slot, s, await intakeToday(env, r.user_id, s, now));
     if (
       !windowOpen(now, s) ||
       now - Date.parse(r.scheduled_at) > 15 * 60000 ||
-      (await reached(env, r.user_id, s, now))
+      localDate(slot, s.timezone) !== localDate(now, s.timezone) ||
+      !plan
     ) {
       await env.DB.prepare(
         "UPDATE notification_delivery_logs SET status='cancelled',updated_at=? WHERE id=? AND status='retry'",
@@ -92,7 +94,7 @@ export async function scheduled(env: Env, now = Date.now()) {
     )
       .bind(stamp, r.delivery_id, r.attempts)
       .first();
-    if (claim) await deliver(env, r, r.delivery_id, r.attempts + 1, now);
+    if (claim) await deliver(env, r, r.delivery_id, r.attempts + 1, now, plan!);
   }
   // At most once per UTC day; old idempotency keys cannot match current slots.
   if (new Date(now).getUTCHours() === 3 && new Date(now).getUTCMinutes() < 5) {

@@ -45,17 +45,29 @@ self.addEventListener('fetch', (event) => {
     })(),
   );
 });
-self.addEventListener('push', (event) =>
+self.addEventListener('push', (event) => {
+  let message;
+  try {
+    message = event.data?.json();
+  } catch {
+    /* Older, bodyless pushes remain supported. */
+  }
+  const title =
+    typeof message?.title === 'string' ? message.title.slice(0, 100) : '물 마실 시간이에요 💧';
+  const body =
+    typeof message?.body === 'string'
+      ? message.body.slice(0, 300)
+      : '잠깐 쉬면서 물 한 잔 마셔보세요.';
   event.waitUntil(
-    self.registration.showNotification('물 마실 시간이에요 💧', {
-      body: '잠깐 쉬면서 물 한 잔 마셔보세요.',
+    self.registration.showNotification(title, {
+      body,
       icon: new URL('icon-192.png', self.registration.scope).href,
       badge: new URL('icon-192.png', self.registration.scope).href,
       tag: 'water-reminder',
       data: { url: self.registration.scope },
     }),
-  ),
-);
+  );
+});
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(

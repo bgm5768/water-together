@@ -10,7 +10,7 @@
 | POST /api/groups | `{display_name}` | 201, 새 게스트·그룹·세션·초대·복구 코드를 원자적으로 생성 |
 | POST /api/join | `{display_name,invite_code}` | 201, 두 번째 멤버 생성. 정원 초과 409 |
 | POST /api/recover | `{recovery_code}` | 새 token/recovery_code, 기존 세션 취소 |
-| GET /api/me | 인증 | 본인, group_id, role, settings, 활성 기기 수, 다음 예약 후보, 공개 VAPID 키 |
+| GET /api/me | 인증 | 본인, group_id, role, settings, 활성 기기 수, next_notification(섭취량을 반영한 다음 예약 후보), next_amount_ml(예상 ml, 없으면 null), 공개 VAPID 키 |
 | POST /api/invite | 인증 | owner만 초대 코드 재발급. 정원 충족 시 409 |
 | GET /api/day?date=YYYY-MM-DD | 인증 | 날짜 생략 시 내 시간대 오늘. 두 멤버·설정 목표·합계·개별 기록 |
 | POST /api/logs | `{amount_ml,consumed_at}` | 201, 자신의 기록 생성. `Idempotency-Key` UUID 필수 |

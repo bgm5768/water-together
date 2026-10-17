@@ -40,6 +40,41 @@ export function TodayScreen(p: Props) {
   const [cup, setCup] = useState(200);
   const [choosing, setChoosing] = useState(false);
   const picker = useRef<HTMLDialogElement>(null);
+  const total = p.own?.total_ml;
+  const previous = useRef({ total, day: p.today });
+  const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
+  const [displayTotal, setDisplayTotal] = useState(total ?? 0);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = { total, day: p.today };
+    if (total === undefined) return;
+    if (
+      before.total === undefined ||
+      before.day !== p.today ||
+      total <= before.total ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setDisplayTotal(total);
+      setSplash(null);
+      return;
+    }
+    setSplash({ amount: total - before.total, key: Date.now() });
+    const start = performance.now();
+    let frame = 0;
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - start) / 650);
+      setDisplayTotal(
+        Math.round(before.total! + (total - before.total!) * (1 - (1 - progress) ** 3)),
+      );
+      if (progress < 1) frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    const timer = window.setTimeout(() => setSplash(null), 1700);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [total, p.today]);
   const percent = p.own ? Math.round((p.own.total_ml / p.own.daily_goal_ml) * 100) : null;
   const partnerPercent = p.partner
     ? Math.round((p.partner.total_ml / p.partner.daily_goal_ml) * 100)
@@ -63,7 +98,10 @@ export function TodayScreen(p: Props) {
 
   return (
     <div className="water-today">
-      <section className="water-stage" aria-label="오늘의 수분 섭취">
+      <section
+        className={'water-stage' + (splash ? ' just-drank' : '')}
+        aria-label="오늘의 수분 섭취"
+      >
         <header className="day-toolbar">
           <span className="person-pill">
             <Droplet size={20} fill="currentColor" />
@@ -97,11 +135,16 @@ export function TodayScreen(p: Props) {
             className={
               'hero-number ' + (String(p.own?.total_ml || 0).length > 4 ? 'long-number' : '')
             }
-            aria-live="polite"
+            aria-label={total === undefined ? '기록 확인 중' : `오늘 ${fmt(total)} ml 마셨어요`}
           >
-            <strong>{p.own ? fmt(p.own.total_ml) : '—'}</strong>
-            <span>ml</span>
+            <strong aria-hidden="true">{p.own ? fmt(displayTotal) : '—'}</strong>
+            <span aria-hidden="true">ml</span>
           </div>
+          {splash && (
+            <span key={splash.key} className="intake-splash" aria-hidden="true">
+              +{fmt(splash.amount)} ml <Droplet size={16} fill="currentColor" />
+            </span>
+          )}
           <p>
             {percent === null
               ? p.loading
@@ -136,7 +179,9 @@ export function TodayScreen(p: Props) {
             <span className="metric-value reminder-value">{reminder}</span>
             <span className="metric-sub">
               {p.connected && p.me.settings.enabled
-                ? '예약 후보 · 목표 달성 시 생략 가능'
+                ? p.me.next_amount_ml
+                  ? `약 ${fmt(p.me.next_amount_ml)} ml · 기록에 맞춰 조절`
+                  : '마신 양에 맞춰 알림을 쉬어요'
                 : '나만의 물 마시기 리듬'}
             </span>
           </button>
@@ -208,7 +253,10 @@ export function TodayScreen(p: Props) {
               <Droplet size={15} fill="currentColor" />
             </span>
             <span className="drinking-glass" aria-hidden="true">
-              <span className="glass-water" />
+              <span
+                className="glass-water"
+                style={{ height: `${Math.min(38, 15 + cup / 22)}px` }}
+              />
               <span className="glass-shine" />
             </span>
             <span className="cup-volume">
@@ -253,13 +301,22 @@ export function TodayScreen(p: Props) {
         </div>
         <div className="water-landscape" aria-hidden="true">
           <svg viewBox="0 0 600 240" preserveAspectRatio="none">
-            <path className="wave-back" d="M0 55 C160 100 250 5 420 35 S550 50 600 32 V240 H0Z" />
             <path
-              className="wave-middle"
-              d="M0 95 C150 10 280 125 430 66 S540 40 600 55 V240 H0Z"
+              className="wave-back wave-flow"
+              d="M0 55 Q150 5 300 55 T600 55 T900 55 T1200 55 V240 H0Z"
             />
-            <path className="wave-front" d="M0 70 C140 135 360 68 600 50 V240 H0Z" />
+            <path
+              className="wave-middle wave-flow"
+              d="M0 80 Q150 130 300 80 T600 80 T900 80 T1200 80 V240 H0Z"
+            />
+            <path
+              className="wave-front wave-flow"
+              d="M0 95 Q150 60 300 95 T600 95 T900 95 T1200 95 V240 H0Z"
+            />
           </svg>
+          <span className="water-bubble bubble-one" />
+          <span className="water-bubble bubble-two" />
+          <span className="water-bubble bubble-three" />
         </div>
       </section>
 
