@@ -994,7 +994,14 @@ export function App() {
         </>
       )}
       <footer>매일의 작은 습관, 둘이라서 더 꾸준하게.</footer>
-      <LaunchScreen ready={!token || !!me} error={!me && !loading ? error : undefined} onRetry={() => void refresh()} />
+      <LaunchScreen
+        ready={!token || !!me}
+        error={!me && !loading ? error : undefined}
+        onRetry={() => {
+          setError('');
+          void refresh();
+        }}
+      />
       {codes && (
         <Modal
           error={error}
