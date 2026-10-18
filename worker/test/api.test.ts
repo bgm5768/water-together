@@ -352,15 +352,29 @@ test('settings validation and independent user settings', async () => {
     );
 });
 test('CORS, entry and user request limits, content validation', async () => {
-  assert.equal(
-    (
-      await request('/api/groups', 'POST', { display_name: 'bad' }, undefined, {
-        Origin: 'https://evil.example',
-      })
-    ).status,
-    403,
-  );
-  for (let i = 0; i < 10; i++)
+  await mf.dispatchFetch('http://localhost/__test/clock?now=' + Date.now());
+  try {
+    assert.equal(
+      (
+        await request('/api/groups', 'POST', { display_name: 'bad' }, undefined, {
+          Origin: 'https://evil.example',
+        })
+      ).status,
+      403,
+    );
+    for (let i = 0; i < 10; i++)
+      assert.equal(
+        (
+          await request(
+            '/api/join',
+            'POST',
+            { display_name: 'bad', invite_code: 'x'.repeat(43) },
+            undefined,
+            { 'CF-Connecting-IP': 'same-ip' },
+          )
+        ).status,
+        400,
+      );
     assert.equal(
       (
         await request(
@@ -371,24 +385,15 @@ test('CORS, entry and user request limits, content validation', async () => {
           { 'CF-Connecting-IP': 'same-ip' },
         )
       ).status,
-      400,
+      429,
     );
-  assert.equal(
-    (
-      await request(
-        '/api/join',
-        'POST',
-        { display_name: 'bad', invite_code: 'x'.repeat(43) },
-        undefined,
-        { 'CF-Connecting-IP': 'same-ip' },
-      )
-    ).status,
-    429,
-  );
-  const a = await create();
-  for (let i = 0; i < 120; i++)
-    assert.equal((await request('/api/settings', 'GET', undefined, a.token)).status, 200);
-  assert.equal((await request('/api/settings', 'GET', undefined, a.token)).status, 429);
+    const a = await create();
+    for (let i = 0; i < 120; i++)
+      assert.equal((await request('/api/settings', 'GET', undefined, a.token)).status, 200);
+    assert.equal((await request('/api/settings', 'GET', undefined, a.token)).status, 429);
+  } finally {
+    await mf.dispatchFetch('http://localhost/__test/clock');
+  }
 });
 test('encrypted subscriptions, vendor allowlist, ownership and unsubscribe', async () => {
   const { a, b } = await pair();
