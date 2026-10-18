@@ -31,6 +31,7 @@ export default defineConfig(({ mode, command }) => {
             'icon.svg',
             'icon-192.png',
             'icon-512.png',
+            'audio/can-pop.mp3',
             ...Object.keys(bundle),
           ];
           const sw = readFileSync(new URL('./src/sw.js', import.meta.url), 'utf8');
@@ -40,7 +41,7 @@ export default defineConfig(({ mode, command }) => {
             .update(base)
             .update(api.origin)
             .update(readFileSync(new URL('./index.html', import.meta.url)));
-          for (const file of ['icon.svg', 'icon-192.png', 'icon-512.png'])
+          for (const file of ['icon.svg', 'icon-192.png', 'icon-512.png', 'audio/can-pop.mp3'])
             revisionHash.update(readFileSync(new URL('./public/' + file, import.meta.url)));
           const revision = revisionHash.digest('hex').slice(0, 16);
           this.emitFile({

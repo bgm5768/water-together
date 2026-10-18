@@ -1,41 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
 
 const KEY = 'water-reminder-sound';
+const SOUND_URL = `${import.meta.env.BASE_URL}audio/can-pop.mp3`;
 export function useWaterSound() {
   const [enabled, setEnabled] = useState(() => localStorage.getItem(KEY) !== 'off');
   const [hint, setHint] = useState('');
   const context = useRef<AudioContext | null>(null);
+  const buffer = useRef<Promise<AudioBuffer> | null>(null);
+  const source = useRef<AudioBufferSourceNode | null>(null);
+  const playback = useRef(0);
+  function loadSound(audio: AudioContext) {
+    buffer.current ??= fetch(SOUND_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error('Sound unavailable');
+        return response.arrayBuffer();
+      })
+      .then((bytes) => audio.decodeAudioData(bytes))
+      .catch((error: unknown) => {
+        buffer.current = null;
+        throw error;
+      });
+    return buffer.current;
+  }
   async function unlock() {
-    if (!('AudioContext' in window)) return;
+    if (!('AudioContext' in window)) throw new Error('Audio unavailable');
     context.current ??= new AudioContext();
     if (context.current.state === 'suspended') await context.current.resume();
+    await loadSound(context.current);
   }
-  function play() {
+  async function play() {
+    const request = ++playback.current;
     const audio = context.current;
     if (!audio || audio.state !== 'running') {
-      setHint('물소리 미리 듣기를 눌러 이 화면의 소리를 켜주세요.');
+      setHint('탄산 소리 미리 듣기를 눌러 이 화면의 소리를 켜주세요.');
       return;
     }
-    // Soft, descending droplets synthesized locally; no third-party audio or network.
-    for (let i = 0; i < 5; i++) {
-      const at = audio.currentTime + i * 0.23;
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(1250 - i * 95, at);
-      oscillator.frequency.exponentialRampToValueAtTime(320 + i * 25, at + 0.13);
-      gain.gain.setValueAtTime(0, at);
-      gain.gain.linearRampToValueAtTime(0.14, at + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.32);
-      oscillator.connect(gain).connect(audio.destination);
-      oscillator.start(at);
-      oscillator.stop(at + 0.35);
-      oscillator.onended = () => {
-        oscillator.disconnect();
-        gain.disconnect();
-      };
-    }
-    setHint('앱이 열린 동안 알림이 오면 이 물소리가 나요.');
+    const decoded = await loadSound(audio);
+    if (request !== playback.current || audio.state !== 'running') return;
+    source.current?.stop();
+    const next = audio.createBufferSource();
+    next.buffer = decoded;
+    next.connect(audio.destination);
+    source.current = next;
+    next.onended = () => {
+      next.disconnect();
+      if (source.current === next) source.current = null;
+    };
+    next.start();
+    setHint('톡! 시원하게 캔을 따는 소리예요. 앱이 열린 동안 알림에 사용해요.');
   }
   useEffect(() => {
     if (!enabled) return;
@@ -43,7 +55,8 @@ export function useWaterSound() {
       void unlock().catch(() => {});
     };
     const message = (event: MessageEvent) => {
-      if (event.data?.type === 'WATER_REMINDER' && document.visibilityState === 'visible') play();
+      if (event.data?.type === 'WATER_REMINDER' && document.visibilityState === 'visible')
+        void play().catch(() => setHint('소리를 불러오지 못했어요. 미리 듣기로 다시 시도해주세요.'));
     };
     window.addEventListener('pointerdown', gesture);
     window.addEventListener('keydown', gesture);
@@ -56,7 +69,12 @@ export function useWaterSound() {
   }, [enabled]);
   useEffect(
     () => () => {
+      playback.current++;
+      source.current?.stop();
+      source.current = null;
       void context.current?.close();
+      context.current = null;
+      buffer.current = null;
     },
     [],
   );
@@ -69,10 +87,15 @@ export function useWaterSound() {
           onChange={(event) => {
             const checked = event.target.checked;
             setEnabled(checked);
+            if (!checked) {
+              playback.current++;
+              source.current?.stop();
+              source.current = null;
+            }
             localStorage.setItem(KEY, checked ? 'on' : 'off');
           }}
         />
-        <span>앱 안에서 물소리</span>
+        <span>앱 안에서 탄산 알림음</span>
       </label>
       <button
         type="button"
@@ -82,7 +105,7 @@ export function useWaterSound() {
             .catch(() => setHint('이 브라우저에서 소리를 켜지 못했어요.'))
         }
       >
-        물소리 미리 듣기
+        탄산 소리 미리 듣기
       </button>
       {hint && (
         <p className="field-hint" role="status">
