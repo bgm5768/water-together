@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const KEY = 'water-reminder-sound';
-const SOUND_URL = `${import.meta.env.BASE_URL}audio/can-pop.mp3`;
+const SOUND_URL = `${import.meta.env.BASE_URL}audio/can-pour.mp3`;
 export function useWaterSound() {
   const [enabled, setEnabled] = useState(() => localStorage.getItem(KEY) !== 'off');
   const [hint, setHint] = useState('');
@@ -32,7 +32,7 @@ export function useWaterSound() {
     const request = ++playback.current;
     const audio = context.current;
     if (!audio || audio.state !== 'running') {
-      setHint('탄산 소리 미리 듣기를 눌러 이 화면의 소리를 켜주세요.');
+      setHint('캔 따고 물 따르기 미리 듣기를 눌러 이 화면의 소리를 켜주세요.');
       return;
     }
     const decoded = await loadSound(audio);
@@ -47,7 +47,7 @@ export function useWaterSound() {
       if (source.current === next) source.current = null;
     };
     next.start();
-    setHint('톡! 시원하게 캔을 따는 소리예요. 앱이 열린 동안 알림에 사용해요.');
+    setHint('캔을 톡 따고, 잔에 시원하게 따르는 소리예요. 앱이 열린 동안 알림에 사용해요.');
   }
   useEffect(() => {
     if (!enabled) return;
@@ -56,7 +56,9 @@ export function useWaterSound() {
     };
     const message = (event: MessageEvent) => {
       if (event.data?.type === 'WATER_REMINDER' && document.visibilityState === 'visible')
-        void play().catch(() => setHint('소리를 불러오지 못했어요. 미리 듣기로 다시 시도해주세요.'));
+        void play().catch(() =>
+          setHint('소리를 불러오지 못했어요. 미리 듣기로 다시 시도해주세요.'),
+        );
     };
     window.addEventListener('pointerdown', gesture);
     window.addEventListener('keydown', gesture);
@@ -95,7 +97,7 @@ export function useWaterSound() {
             localStorage.setItem(KEY, checked ? 'on' : 'off');
           }}
         />
-        <span>앱 안에서 탄산 알림음</span>
+        <span>앱 안에서 물소리 알림</span>
       </label>
       <button
         type="button"
@@ -105,7 +107,7 @@ export function useWaterSound() {
             .catch(() => setHint('이 브라우저에서 소리를 켜지 못했어요.'))
         }
       >
-        탄산 소리 미리 듣기
+        캔 따고 물 따르기 미리 듣기
       </button>
       {hint && (
         <p className="field-hint" role="status">

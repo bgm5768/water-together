@@ -6,13 +6,37 @@
     <meta name="theme-color" content="#e4ebff" />
     <meta name="description" content="두 사람이 함께 만드는 물 마시기 습관" />
     <meta name="referrer" content="no-referrer" />
-    <link rel="icon" href="%BASE_URL%icon.svg" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icon-cinematic-32.png" />
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-cinematic-180.png" />
+    <link rel="preload" as="image" href="%BASE_URL%brand/water-glass.webp" />
     <title>Water Together · 함께 마시는 물</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div
+        style="
+          position: fixed;
+          inset: 0;
+          background: #030d1b;
+          display: grid;
+          place-content: center;
+          text-align: center;
+          color: #8397aa;
+          font: 11px system-ui;
+        "
+      >
+        <img
+          src="%BASE_URL%brand/water-glass.webp"
+          alt=""
+          width="280"
+          height="280"
+          style="width: min(75vw, 280px); height: auto; border-radius: 50%"
+        />
+        <p>우리의 공간을 불러오고 있어요.</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

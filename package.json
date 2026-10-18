@@ -30,6 +30,7 @@
     "esbuild": "^0.25.11",
     "miniflare": "^4.20251014.0",
     "prettier": "^3.9.10",
+    "sharp": "0.35.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "wrangler": "^4.151.1"

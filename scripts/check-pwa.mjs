@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 const dist = new URL('../frontend/dist/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.webmanifest', dist), 'utf8'));
 const base = manifest.scope;
@@ -19,6 +20,25 @@ for (const asset of assets) {
   assert.ok(existsSync(new URL(asset.slice(base.length) || 'index.html', dist)), asset);
 }
 const html = readFileSync(new URL('index.html', dist), 'utf8');
+const badge = await sharp(readFileSync(new URL('notification-badge.png', dist)))
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+assert.equal(badge.info.width, 96);
+assert.equal(badge.info.height, 96);
+const alpha = Array.from(badge.data).filter((_, index) => index % 4 === 3);
+assert.equal(alpha[0], 0, 'Notification badge background must be transparent');
+assert.ok(
+  alpha.some((a) => a === 255),
+  'Notification badge must contain an opaque silhouette',
+);
+assert.ok(
+  alpha.filter((a) => a === 0).length > alpha.length / 2,
+  'Opaque squares must never be used as status-bar badges',
+);
+assert.ok(sw.includes("badge: new URL('notification-badge.png'"));
+for (const path of ['notification-badge.png', 'audio/can-pour.mp3', 'brand/water-glass.webp'])
+  assert.ok(assets.includes(base + path), `Missing offline asset: ${path}`);
 assert.ok(html.includes('Content-Security-Policy'));
 assert.ok(html.includes(`href="${base}manifest.webmanifest"`));
 console.log(`PWA paths, cache entries, CSP and PNG sizes verified for ${base}`);

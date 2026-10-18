@@ -1,46 +1,54 @@
-import { deflateSync } from 'node:zlib';
+// Run after updating design/water-glass-source.png (approved original artwork).
+import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
-function crc(b) {
-  let c = 0xffffffff;
-  for (const n of b) {
-    c ^= n;
-    for (let j = 0; j < 8; j++) c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
-  }
-  return (c ^ 0xffffffff) >>> 0;
+import { fileURLToPath } from 'node:url';
+const source = fileURLToPath(new URL('../design/water-glass-source.png', import.meta.url));
+const publicDir = new URL('../frontend/public/', import.meta.url);
+await sharp(source)
+  .resize(768, 768)
+  .webp({ quality: 88 })
+  .toFile(fileURLToPath(new URL('brand/water-glass.webp', publicDir)));
+// Keep the full droplet inside the central maskable safe circle.
+for (const size of [32, 180, 192, 512]) {
+  const art = Math.round(size * 0.76);
+  const pad = Math.floor((size - art) / 2);
+  const bytes = await sharp(source)
+    .resize(art, art)
+    .extend({
+      top: pad,
+      left: pad,
+      bottom: size - art - pad,
+      right: size - art - pad,
+      background: '#031225',
+    })
+    .png()
+    .toBuffer();
+  writeFileSync(new URL(`icon-cinematic-${size}.png`, publicDir), bytes);
+  if (size === 192 || size === 512) writeFileSync(new URL(`icon-${size}.png`, publicDir), bytes);
 }
-function chunk(type, data) {
-  const t = Buffer.from(type),
-    size = Buffer.alloc(4),
-    sum = Buffer.alloc(4);
-  size.writeUInt32BE(data.length);
-  sum.writeUInt32BE(crc(Buffer.concat([t, data])));
-  return Buffer.concat([size, t, data, sum]);
-}
-for (const size of [192, 512]) {
-  const data = Buffer.alloc((size * 4 + 1) * size);
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const px = (x / size) * 512,
-        py = (y / size) * 512,
-        dx = Math.abs(px - 256);
-      const drop =
-        (py >= 265 && (px - 256) ** 2 + (py - 280) ** 2 < 100 ** 2) ||
-        (py >= 110 && py < 280 && dx < (py - 110) * 0.59);
-      const i = y * (size * 4 + 1) + 1 + x * 4;
-      data.set(drop ? [255, 255, 255, 255] : [23, 107, 239, 255], i);
-    }
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(size);
-  header.writeUInt32BE(size, 4);
-  header[8] = 8;
-  header[9] = 6;
-  writeFileSync(
-    new URL(`../frontend/public/icon-${size}.png`, import.meta.url),
-    Buffer.concat([
-      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-      chunk('IHDR', header),
-      chunk('IDAT', deflateSync(data)),
-      chunk('IEND', Buffer.alloc(0)),
-    ]),
-  );
-}
+// Android uses the alpha mask, not the RGB colors, for its small status-bar icon.
+const solid = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><path fill="white" d="M48 8C43 19 20 41 20 58a28 28 0 0 0 56 0C76 41 53 19 48 8Z"/></svg>`,
+);
+const cutout = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><path fill="none" stroke="white" stroke-width="7" stroke-linecap="round" d="M32 58c0 10 7 17 16 17"/></svg>`,
+);
+writeFileSync(
+  new URL('notification-badge.png', publicDir),
+  await sharp(solid)
+    .composite([{ input: cutout, blend: 'dest-out' }])
+    .png()
+    .toBuffer(),
+);
+const png = await sharp(source).resize(48, 48).png().toBuffer();
+const ico = Buffer.alloc(22);
+ico.writeUInt16LE(1, 2);
+ico.writeUInt16LE(1, 4);
+ico[6] = 48;
+ico[7] = 48;
+ico.writeUInt16LE(1, 10);
+ico.writeUInt16LE(32, 12);
+ico.writeUInt32LE(png.length, 14);
+ico.writeUInt32LE(22, 18);
+writeFileSync(new URL('favicon.ico', publicDir), Buffer.concat([ico, png]));
+console.log('Cinematic icons, splash art, transparent notification badge and favicon generated.');

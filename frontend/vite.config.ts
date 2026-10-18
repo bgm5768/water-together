@@ -8,6 +8,19 @@ export default defineConfig(({ mode, command }) => {
   if (!base.startsWith('/') || !base.endsWith('/') || !/^\/[\w/-]*$/.test(base))
     throw new Error('VITE_BASE_PATH must be / or /repository/');
   const api = new URL(env.VITE_API_URL || 'http://localhost:8787');
+  const publicAssets = [
+    'icon.svg',
+    'icon-192.png',
+    'icon-512.png',
+    'icon-cinematic-32.png',
+    'icon-cinematic-180.png',
+    'icon-cinematic-192.png',
+    'icon-cinematic-512.png',
+    'favicon.ico',
+    'notification-badge.png',
+    'brand/water-glass.webp',
+    'audio/can-pour.mp3',
+  ];
   if (!['https:', 'http:'].includes(api.protocol)) throw new Error('Invalid API URL');
   return {
     base,
@@ -28,10 +41,7 @@ export default defineConfig(({ mode, command }) => {
             '',
             'index.html',
             'manifest.webmanifest',
-            'icon.svg',
-            'icon-192.png',
-            'icon-512.png',
-            'audio/can-pop.mp3',
+            ...publicAssets,
             ...Object.keys(bundle),
           ];
           const sw = readFileSync(new URL('./src/sw.js', import.meta.url), 'utf8');
@@ -41,7 +51,7 @@ export default defineConfig(({ mode, command }) => {
             .update(base)
             .update(api.origin)
             .update(readFileSync(new URL('./index.html', import.meta.url)));
-          for (const file of ['icon.svg', 'icon-192.png', 'icon-512.png', 'audio/can-pop.mp3'])
+          for (const file of publicAssets)
             revisionHash.update(readFileSync(new URL('./public/' + file, import.meta.url)));
           const revision = revisionHash.digest('hex').slice(0, 16);
           this.emitFile({
@@ -56,17 +66,17 @@ export default defineConfig(({ mode, command }) => {
               start_url: base,
               scope: base,
               display: 'standalone',
-              background_color: '#e4ebff',
+              background_color: '#030d1b',
               theme_color: '#e4ebff',
               icons: [
                 {
-                  src: `${base}icon-192.png`,
+                  src: `${base}icon-cinematic-192.png`,
                   sizes: '192x192',
                   type: 'image/png',
                   purpose: 'any maskable',
                 },
                 {
-                  src: `${base}icon-512.png`,
+                  src: `${base}icon-cinematic-512.png`,
                   sizes: '512x512',
                   type: 'image/png',
                   purpose: 'any maskable',

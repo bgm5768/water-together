@@ -1,5 +1,21 @@
 # Can pop notification sound
 
+## Combined alert: can-pour.mp3
+
+The app now uses a 3.63-second edit: the can opening below, followed by a short
+pour into a glass, with a 120 ms crossfade. The pour comes from:
+
+- **Fizzy Drink Pouring Into Glass** by **Rudmer_Rotteveel**
+- Source: https://freesound.org/people/Rudmer_Rotteveel/sounds/700351/
+- License: **CC0 1.0 Universal**, verified 2026-10-18.
+- Public HQ preview: https://cdn.freesound.org/previews/700/700351_4921277-hq.mp3
+- Edit: source seconds 1.4–3.9; 70 Hz high-pass, -7 dB gain,
+  150 ms fade-in and 500 ms fade-out. Final combined peak limiter: 0.6.
+
+Both recordings permit adaptation and redistribution, including commercial use.
+
+## Original can segment
+
 - File: `can-pop.mp3`
 - Original: **opening beer can.flac** by **MarviinR**
 - Source: https://freesound.org/people/MarviinR/sounds/523322/

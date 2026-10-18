@@ -62,8 +62,8 @@ self.addEventListener('push', (event) => {
     (async () => {
       await self.registration.showNotification(title, {
         body,
-        icon: new URL('icon-192.png', self.registration.scope).href,
-        badge: new URL('icon-192.png', self.registration.scope).href,
+        icon: new URL('icon-cinematic-192.png', self.registration.scope).href,
+        badge: new URL('notification-badge.png', self.registration.scope).href,
         tag: message?.kind === 'partner' ? 'water-partner' : 'water-reminder',
         renotify: true,
         silent: false,

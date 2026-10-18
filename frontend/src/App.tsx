@@ -29,6 +29,7 @@ import { ReminderPlan } from './ReminderPlan';
 import { ReminderSchedule } from './ReminderSchedule';
 import { useWaterSound } from './WaterSound';
 import { SettingsTabs, SettingsPanel, type SettingsTab } from './SettingsTabs';
+import { LaunchScreen } from './LaunchScreen';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -289,11 +290,7 @@ export function App() {
           }}
         />
       ) : !me ? (
-        <main className="loading">
-          <Droplet />{' '}
-          <p>{loading ? '우리의 공간을 불러오고 있어요.' : '공간을 불러오지 못했어요.'}</p>
-          <button onClick={() => void refresh()}>다시 불러오기</button>
-        </main>
+        <main aria-label="공간 불러오는 중" />
       ) : (
         <>
           <main>
@@ -997,6 +994,7 @@ export function App() {
         </>
       )}
       <footer>매일의 작은 습관, 둘이라서 더 꾸준하게.</footer>
+      <LaunchScreen ready={!token || !!me} error={!me && !loading ? error : undefined} onRetry={() => void refresh()} />
       {codes && (
         <Modal
           error={error}
