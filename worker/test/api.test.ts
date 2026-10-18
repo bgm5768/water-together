@@ -62,6 +62,7 @@ after(async () => {
 });
 beforeEach(async () => {
   for (const table of [
+    'partner_deliveries',
     'notification_delivery_logs',
     'push_subscriptions',
     'water_logs',
@@ -720,4 +721,110 @@ test('three-device limit includes reactivating an old device', async () => {
     (await request('/api/push/subscribe', 'POST', subscription('one'), a.token)).status,
     409,
   );
+});
+
+test('new drink notifies only partner once even with concurrent replay, not edits or other groups', async () => {
+  const { a, b } = await pair(),
+    outsider = await create('다른 공간');
+  await subscribe(a.token, 'sender');
+  await subscribe(b.token, 'recipient');
+  await subscribe(outsider.token, 'outsider');
+  let calls = 0;
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/recipient', method: 'POST' })
+    .reply(() => {
+      calls++;
+      return { statusCode: 201, data: '' };
+    });
+  const id = crypto.randomUUID(),
+    when = new Date().toISOString();
+  const results = await Promise.all([log(a.token, 250, when, id), log(a.token, 250, when, id)]);
+  assert.ok(results.every((r) => r.status === 201));
+  assert.equal(calls, 1);
+  const rows = await db
+    .prepare('SELECT sender_name,amount_ml,status,attempts FROM partner_deliveries')
+    .all();
+  assert.deepEqual(rows.results, [
+    { sender_name: '가람', amount_ml: 250, status: 'accepted', attempts: 1 },
+  ]);
+  assert.equal(
+    (await request('/api/logs/' + id, 'PATCH', { amount_ml: 300, consumed_at: when }, a.token))
+      .status,
+    200,
+  );
+  assert.equal(calls, 1);
+  assert.equal((await request('/api/logs/' + id, 'DELETE', undefined, a.token)).status, 200);
+  assert.equal(calls, 1);
+});
+
+test('partner preference is independent of reminders, survives legacy clients and cancels pending retries', async () => {
+  const { a, b } = await pair();
+  await subscribe(b.token, 'preference');
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, b.token)).data.settings.partner_notifications,
+    true,
+  );
+  await request(
+    '/api/settings',
+    'PUT',
+    { ...defaults, enabled: false, partner_notifications: false },
+    b.token,
+  );
+  const { partner_notifications: omitted, ...legacy } = defaults;
+  await request('/api/settings', 'PUT', legacy, b.token);
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, b.token)).data.settings.partner_notifications,
+    false,
+  );
+  await log(a.token);
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM partner_deliveries').first())!.n, 0);
+  await request(
+    '/api/settings',
+    'PUT',
+    { ...defaults, enabled: false, partner_notifications: true },
+    b.token,
+  );
+  await log(b.token, 2000, new Date().toISOString());
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/preference', method: 'POST' })
+    .reply(503);
+  assert.equal((await log(a.token)).status, 201);
+  assert.equal(
+    (await db.prepare('SELECT status FROM partner_deliveries').first())!.status,
+    'retry',
+  );
+  await request(
+    '/api/settings',
+    'PUT',
+    { ...defaults, enabled: false, partner_notifications: false },
+    b.token,
+  );
+  await cron(Date.now() + 65000);
+  assert.equal(
+    (await db.prepare('SELECT status FROM partner_deliveries').first())!.status,
+    'cancelled',
+  );
+});
+
+test('partner failures preserve drink records and retry once through cron with no duplicate delivery', async () => {
+  const { a, b } = await pair();
+  await subscribe(b.token, 'peer-retry');
+  await request('/api/settings', 'PUT', { ...defaults, enabled: false }, b.token);
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/peer-retry', method: 'POST' })
+    .reply(503);
+  const created = await log(a.token);
+  assert.equal(created.status, 201);
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/peer-retry', method: 'POST' })
+    .reply(201);
+  const at = Date.now() + 65000;
+  await Promise.all([cron(at), cron(at)]);
+  const row = await db.prepare('SELECT status,attempts FROM partner_deliveries').first();
+  assert.deepEqual(row, { status: 'accepted', attempts: 2 });
+  assert.ok(await db.prepare('SELECT id FROM water_logs WHERE id=?').bind(created.data.id).first());
 });

@@ -8,6 +8,7 @@ import { readSettings, type Env, type Actor } from './models';
 import { pushConfigured, sendPush, type Device } from './push';
 import { scheduled } from './scheduler';
 import { intakeToday } from './reminders';
+import { flushPartnerNotifications } from './partner';
 
 const nameSchema = z.string().trim().min(1).max(24);
 const codeSchema = z
@@ -38,6 +39,7 @@ const settingsSchema = z
       .refine((x) => IANAZone.isValidZone(x)),
     daily_goal_ml: z.number().int().min(100).max(10000),
     default_drink_ml: z.number().int().min(1).max(3000).optional(),
+    partner_notifications: z.boolean().optional(),
     reminders: z
       .array(
         z
@@ -121,7 +123,7 @@ async function authenticate(req: Request, env: Env): Promise<Actor> {
     throw new HttpError(401, '세션이 없거나 만료되었어요. 복구 코드로 다시 연결해 주세요.');
   return user;
 }
-async function route(req: Request, env: Env) {
+async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUntil'>) {
   const u = new URL(req.url),
     path = u.pathname,
     method = req.method,
@@ -354,6 +356,11 @@ async function route(req: Request, env: Env) {
     ).first<WaterLog>();
     if (!row || row.amount_ml !== input.amount_ml || row.consumed_at !== consumed)
       throw new HttpError(409, '중복된 요청 식별자예요. 새 기록으로 다시 시도해 주세요.');
+    ctx.waitUntil(
+      flushPartnerNotifications(env, key).catch(() => {
+        console.error('partner_delivery_deferred');
+      }),
+    );
     return json(row, 201);
   }
   const logId = path.match(/^\/api\/logs\/([\w-]+)$/)?.[1];
@@ -396,7 +403,7 @@ async function route(req: Request, env: Env) {
     await env.DB.batch([
       stmt(
         env.DB,
-        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),reminders=COALESCE(?,reminders),updated_at=? WHERE user_id=?',
+        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),reminders=COALESCE(?,reminders),partner_notifications=COALESCE(?,partner_notifications),updated_at=? WHERE user_id=?',
         +s.enabled,
         s.start_time,
         s.end_time,
@@ -407,6 +414,7 @@ async function route(req: Request, env: Env) {
         s.daily_goal_ml,
         s.default_drink_ml ?? null,
         s.reminders ? JSON.stringify(s.reminders) : null,
+        s.partner_notifications === undefined ? null : +s.partner_notifications,
         now,
         actor.id,
       ),
@@ -414,6 +422,13 @@ async function route(req: Request, env: Env) {
         env.DB,
         "UPDATE notification_delivery_logs SET status='cancelled',updated_at=? WHERE user_id=? AND status='retry'",
         now,
+        actor.id,
+      ),
+      stmt(
+        env.DB,
+        "UPDATE partner_deliveries SET status='cancelled',updated_at=? WHERE status IN ('pending','retry') AND subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id=?) AND EXISTS(SELECT 1 FROM notification_settings WHERE user_id=? AND partner_notifications=0)",
+        now,
+        actor.id,
         actor.id,
       ),
     ]);
@@ -526,14 +541,14 @@ async function route(req: Request, env: Env) {
   throw new HttpError(404, '요청한 기능을 찾을 수 없어요.');
 }
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const origin = req.headers.get('Origin');
     let response: Response;
     try {
       if (origin && origin !== env.ALLOWED_ORIGIN)
         throw new HttpError(403, '허용되지 않은 출처예요.');
       if (req.method === 'OPTIONS') response = new Response(null, { status: 204 });
-      else response = await route(req, env);
+      else response = await route(req, env, ctx);
     } catch (e) {
       response =
         e instanceof HttpError

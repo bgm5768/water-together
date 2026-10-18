@@ -20,6 +20,13 @@ export default {
       await scheduled(env, Number(url.searchParams.get('now')));
       return new Response('ok');
     }
-    return app.fetch(req, env);
+    const pending: Promise<unknown>[] = [];
+    const response = await app.fetch(req, env, {
+      waitUntil(promise) {
+        pending.push(promise);
+      },
+    });
+    await Promise.all(pending);
+    return response;
   },
 } satisfies ExportedHandler<Env>;

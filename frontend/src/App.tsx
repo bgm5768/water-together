@@ -28,6 +28,7 @@ import { InstallApp } from './InstallApp';
 import { ReminderPlan } from './ReminderPlan';
 import { ReminderSchedule } from './ReminderSchedule';
 import { useWaterSound } from './WaterSound';
+import { SettingsTabs, SettingsPanel, type SettingsTab } from './SettingsTabs';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -36,6 +37,7 @@ const supportsPush = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 export function App() {
   const waterSound = useWaterSound();
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('goal');
   const [token, setToken] = useState(() => session.get()),
     [me, setMe] = useState<Me | null>(null),
     [day, setDay] = useState<DayData | null>(null);
@@ -307,8 +309,9 @@ export function App() {
                 online={online}
                 connected={device && permission === 'granted' && me.subscription_count > 0}
                 onRefresh={() => void refresh()}
-                onSettings={() => {
-                  setDraft(me.settings);
+                onSettings={(section = 'goal') => {
+                  setSettingsTab(section);
+                  setDraft((current) => current ?? me.settings);
                   setTab('settings');
                 }}
                 onHistory={() => {
@@ -498,14 +501,20 @@ export function App() {
                             </h3>
                             <p>
                               {me.settings.enabled
-                                ? `예약 알림 켜짐 · ${me.settings.interval_minutes}분 간격`
+                                ? '예약 알림 켜짐 · 지정한 시각에 안내'
                                 : '예약 알림 꺼짐'}
                               <br />
                               {device && permission === 'granted'
                                 ? '이 기기 브라우저 구독 있음'
                                 : '이 기기 알림 연결이 필요해요'}
                             </p>
-                            <button className="text-button" onClick={() => setTab('settings')}>
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setSettingsTab('alerts');
+                                setTab('settings');
+                              }}
+                            >
                               알림 설정 <ArrowRight size={14} />
                             </button>
                           </div>
@@ -523,282 +532,427 @@ export function App() {
                   </>
                 ) : (
                   draft && (
-                    <div className="settings-layout">
+                    <SettingsTabs active={settingsTab} onChange={setSettingsTab}>
                       <form
-                        className="card settings-card"
-                        onSubmit={(e) => {
-                          e.preventDefault();
+                        className="settings-form"
+                        onInvalidCapture={(event) => {
+                          const panel = (event.target as HTMLElement)
+                            .closest('[data-settings-panel]')
+                            ?.getAttribute('data-settings-panel');
+                          if (panel && panel !== settingsTab) {
+                            event.preventDefault();
+                            setSettingsTab(panel as SettingsTab);
+                            const input = event.target as HTMLInputElement;
+                            requestAnimationFrame(() => input.focus());
+                            setError('입력한 값의 범위와 형식을 확인해 주세요.');
+                          }
+                        }}
+                        onSubmit={(event) => {
+                          event.preventDefault();
                           void run(async () => {
-                            await api('/api/settings', 'PUT', draft);
-                            setMe({ ...me, settings: draft });
-                            setNotice('목표와 알림 설정을 저장했어요.');
+                            const result = await api<Settings>('/api/settings', 'PUT', draft);
+                            setDraft(result);
+                            setMe({ ...me, settings: result });
+                            setNotice('변경한 설정을 모두 저장했어요.');
                             await refresh();
                           });
                         }}
                       >
-                        <h2>
-                          <Settings2 size={20} /> 목표와 일정
-                        </h2>
-                        <label>
-                          하루 목표량{' '}
-                          <div className="input-unit">
-                            <input
-                              type="number"
-                              min="100"
-                              max="10000"
-                              step="1"
-                              required
-                              value={draft.daily_goal_ml}
-                              onChange={(e) =>
-                                setDraft({ ...draft, daily_goal_ml: Number(e.target.value) })
-                              }
-                            />
-                            <span>ml</span>
-                          </div>
-                        </label>
-                        <label>
-                          기본 한 잔 용량
-                          <div className="input-unit">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              min="1"
-                              max="3000"
-                              step="1"
-                              required
-                              value={draft.default_drink_ml ?? 200}
-                              onChange={(event) =>
-                                setDraft({ ...draft, default_drink_ml: Number(event.target.value) })
-                              }
-                            />
-                            <span>ml</span>
-                          </div>
-                          <small className="field-hint">
-                            물 마시기를 열 때 이 양부터 시작해요. 매번 드래그로 조절할 수 있어요.
-                          </small>
-                        </label>
-                        <label className="check-row">
-                          <input
-                            type="checkbox"
-                            checked={draft.enabled}
-                            onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
-                          />
-                          <span>
-                            예약 알림 활성화
-                            <small>브라우저 권한과 기기 연결이 별도로 필요해요.</small>
-                          </span>
-                        </label>
-                        <ReminderSchedule
-                          value={draft.reminders}
-                          onChange={(reminders) => setDraft({ ...draft, reminders })}
-                        />
-                        <fieldset>
-                          <legend>알림 받을 요일</legend>
-                          <div className="weekdays">
-                            {['월', '화', '수', '목', '금', '토', '일'].map((d, i) => (
-                              <label
-                                key={d}
-                                className={draft.active_days.includes(i + 1) ? 'selected' : ''}
-                              >
+                        <SettingsPanel id="goal" active={settingsTab}>
+                          <div className="card settings-card">
+                            <h2>
+                              <Droplet size={20} /> 하루의 목표
+                            </h2>
+                            <p className="field-hint">
+                              하루 목표와 물 마시기를 열 때의 기본 용량을 정해요.
+                            </p>
+                            <label>
+                              하루 목표량{' '}
+                              <div className="input-unit">
                                 <input
-                                  type="checkbox"
-                                  checked={draft.active_days.includes(i + 1)}
+                                  type="number"
+                                  min="100"
+                                  max="10000"
+                                  step="1"
+                                  required
+                                  value={draft.daily_goal_ml}
                                   onChange={(e) =>
+                                    setDraft({ ...draft, daily_goal_ml: Number(e.target.value) })
+                                  }
+                                />
+                                <span>ml</span>
+                              </div>
+                            </label>
+                            <label>
+                              기본 한 잔 용량
+                              <div className="input-unit">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min="1"
+                                  max="3000"
+                                  step="1"
+                                  required
+                                  value={draft.default_drink_ml ?? 200}
+                                  onChange={(event) =>
                                     setDraft({
                                       ...draft,
-                                      active_days: e.target.checked
-                                        ? [...draft.active_days, i + 1].sort()
-                                        : draft.active_days.filter((x) => x !== i + 1),
+                                      default_drink_ml: Number(event.target.value),
                                     })
                                   }
                                 />
-                                {d}
-                              </label>
-                            ))}
+                                <span>ml</span>
+                              </div>
+                              <small className="field-hint">
+                                물 마시기를 열 때 이 양부터 시작해요. 매번 드래그로 조절할 수
+                                있어요.
+                              </small>
+                            </label>
                           </div>
-                        </fieldset>
-                        <label>
-                          시간대
-                          <input
-                            required
-                            value={draft.timezone}
-                            list="timezones"
-                            onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}
-                          />
-                          <datalist id="timezones">
-                            <option>Asia/Seoul</option>
-                            <option>Asia/Tokyo</option>
-                            <option>America/New_York</option>
-                            <option>Europe/London</option>
-                            <option>UTC</option>
-                          </datalist>
-                        </label>
-                        <label className="check-row">
-                          <input
-                            type="checkbox"
-                            checked={draft.stop_when_goal_reached}
-                            onChange={(e) =>
-                              setDraft({ ...draft, stop_when_goal_reached: e.target.checked })
-                            }
-                          />
-                          <span>하루 목표를 채우면 알림 쉬기</span>
-                        </label>
-                        <ReminderPlan settings={draft} now={clock} />
-                        <button className="primary" disabled={busy || !online}>
-                          {busy ? '처리 중…' : '설정 저장'}
-                        </button>
+                        </SettingsPanel>
+                        <SettingsPanel id="schedule" active={settingsTab}>
+                          <div className="card settings-card">
+                            <h2>
+                              <Sun size={20} /> 나의 물 마시기 시간
+                            </h2>
+                            <p className="field-hint">
+                              예약 시각과 요일을 정해요. 정각 도착은 보장되지 않으며 알림
+                              켜기·끄기는 알림 설정에서 바꿔요.
+                            </p>
+                            <ReminderSchedule
+                              value={draft.reminders}
+                              onChange={(reminders) => setDraft({ ...draft, reminders })}
+                            />
+                            <fieldset>
+                              <legend>알림 받을 요일</legend>
+                              <div className="weekdays">
+                                {['월', '화', '수', '목', '금', '토', '일'].map((d, i) => (
+                                  <label
+                                    key={d}
+                                    className={draft.active_days.includes(i + 1) ? 'selected' : ''}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.active_days.includes(i + 1)}
+                                      onChange={(e) =>
+                                        setDraft({
+                                          ...draft,
+                                          active_days: e.target.checked
+                                            ? [...draft.active_days, i + 1].sort()
+                                            : draft.active_days.filter((x) => x !== i + 1),
+                                        })
+                                      }
+                                    />
+                                    {d}
+                                  </label>
+                                ))}
+                              </div>
+                            </fieldset>
+                            <label>
+                              시간대
+                              <input
+                                required
+                                value={draft.timezone}
+                                list="timezones"
+                                onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}
+                              />
+                              <datalist id="timezones">
+                                <option>Asia/Seoul</option>
+                                <option>Asia/Tokyo</option>
+                                <option>America/New_York</option>
+                                <option>Europe/London</option>
+                                <option>UTC</option>
+                              </datalist>
+                            </label>
+
+                            <ReminderPlan settings={draft} now={clock} />
+                          </div>
+                        </SettingsPanel>
+                        <SettingsPanel id="alerts" active={settingsTab}>
+                          <div className="card settings-card">
+                            <h2>
+                              <Bell size={20} /> 어떤 알림을 받을까요?
+                            </h2>
+                            <label className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={draft.enabled}
+                                onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
+                              />
+                              <span>
+                                예약 알림 활성화
+                                <small>브라우저 권한과 기기 연결이 별도로 필요해요.</small>
+                              </span>
+                            </label>
+                            <label className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={draft.stop_when_goal_reached}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, stop_when_goal_reached: e.target.checked })
+                                }
+                              />
+                              <span>하루 목표를 채우면 알림 쉬기</span>
+                            </label>
+
+                            <label className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={draft.partner_notifications ?? true}
+                                onChange={(event) =>
+                                  setDraft({
+                                    ...draft,
+                                    partner_notifications: event.target.checked,
+                                  })
+                                }
+                              />
+                              <span>
+                                상대가 물을 마시면 알림 받기
+                                <small>
+                                  상대가 새 기록을 남기면 이름과 마신 양을 알려드려요. 내 예약
+                                  시간·목표 달성과 관계없이 받아요.
+                                </small>
+                              </span>
+                            </label>
+                            <p className="field-hint">
+                              이 기기의 알림을 연결해야 받을 수 있어요. 물소리와 기기 연결은
+                              아래에서 관리해요.
+                            </p>
+                          </div>
+                          <section className="card settings-card">
+                            <h2>
+                              <Bell size={20} /> 이 기기의 알림
+                            </h2>
+                            <dl className="status-list">
+                              <div>
+                                <dt>브라우저 권한</dt>
+                                <dd>
+                                  {
+                                    {
+                                      granted: '허용됨',
+                                      denied: '차단됨',
+                                      default: '아직 요청하지 않음',
+                                      unsupported: '지원하지 않음',
+                                    }[permission]
+                                  }
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>이 기기 구독</dt>
+                                <dd>{device ? '브라우저 구독 있음' : '연결 필요'}</dd>
+                              </div>
+                              <div>
+                                <dt>서버의 활성 기기</dt>
+                                <dd>{me.subscription_count}대</dd>
+                              </div>
+                              <div>
+                                <dt>다음 예약 후보</dt>
+                                <dd>
+                                  {me.next_notification
+                                    ? DateTime.fromISO(me.next_notification)
+                                        .setZone(me.settings.timezone)
+                                        .toFormat('M/d HH:mm')
+                                    : '예정 없음'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>최근 정기 발송</dt>
+                                <dd>
+                                  {me.last_scheduled_notification ? (
+                                    <>
+                                      {DateTime.fromISO(me.last_scheduled_notification.scheduled_at)
+                                        .setZone(me.settings.timezone)
+                                        .toFormat('M/d HH:mm')}
+                                      <br />
+                                      {{
+                                        accepted: '푸시 서비스 수락',
+                                        retry: '재시도 예정',
+                                        failed: '발송 실패',
+                                        expired: '구독 만료',
+                                        cancelled: '설정·목표에 따라 취소',
+                                        sending: '발송 중',
+                                        unknown: '결과 확인 필요',
+                                      }[me.last_scheduled_notification.status] ?? '결과 확인 필요'}
+                                    </>
+                                  ) : (
+                                    '아직 발송 기록 없음'
+                                  )}
+                                </dd>
+                              </div>
+                            </dl>
+                            <p className="field-hint">
+                              {me.next_amount_ml
+                                ? `다음에는 약 ${fmt(me.next_amount_ml)} ml를 안내해요. `
+                                : ''}
+                              기록에 따라 안내하는 양이 달라져요. 서버는 매분 확인하며,
+                              기기·네트워크 상태에 따라 도착이 늦어질 수 있어요.
+                            </p>
+                            <p className="field-hint">
+                              ‘푸시 서비스 수락’은 서버 발송 결과이며 휴대폰에서의 수신 확인은
+                              아니에요.
+                            </p>
+                            {waterSound}
+                            <button
+                              type="button"
+                              className="primary"
+                              disabled={busy || !online}
+                              onClick={() => void run(enableDevice)}
+                            >
+                              {device ? '이 기기 구독 다시 연결' : '이 기기 알림 허용·연결'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || !online}
+                              onClick={() =>
+                                void run(async () => {
+                                  const r = await api<{ accepted: number; total: number }>(
+                                    '/api/push/test',
+                                    'POST',
+                                  );
+                                  setNotice(
+                                    `푸시 서비스가 ${r.total}개 중 ${r.accepted}개 요청을 수락했어요. 실제 알림 표시는 휴대폰에서 확인해 주세요.`,
+                                  );
+                                  await refresh();
+                                })
+                              }
+                            >
+                              테스트 알림 보내기
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || !device}
+                              onClick={() =>
+                                void run(async () => {
+                                  const reg = await navigator.serviceWorker.getRegistration(
+                                      import.meta.env.BASE_URL,
+                                    ),
+                                    sub = await reg?.pushManager.getSubscription();
+                                  if (sub) {
+                                    await api('/api/push/subscribe', 'DELETE', {
+                                      endpoint: sub.endpoint,
+                                    });
+                                    await sub.unsubscribe();
+                                  }
+                                  setDevice(false);
+                                  setNotice('이 기기의 구독을 해제했어요.');
+                                  await refresh();
+                                })
+                              }
+                            >
+                              이 기기 구독 해제
+                            </button>
+                            <button
+                              type="button"
+                              className="text-button"
+                              disabled={busy || !me.subscription_count}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    '이 사용자의 모든 기기에서 푸시 구독을 해제할까요?',
+                                  )
+                                )
+                                  void run(async () => {
+                                    await api('/api/push/subscribe', 'DELETE', { all: true });
+                                    const reg = await navigator.serviceWorker.getRegistration(
+                                      import.meta.env.BASE_URL,
+                                    );
+                                    await (await reg?.pushManager.getSubscription())?.unsubscribe();
+                                    setDevice(false);
+                                    setNotice('모든 기기의 서버 구독을 해제했어요.');
+                                    await refresh();
+                                  });
+                              }}
+                            >
+                              분실 기기 포함 모든 구독 해제
+                            </button>
+                            {permission === 'denied' && (
+                              <p className="field-hint">
+                                Chrome 주소창의 사이트 정보 → 권한 → 알림에서 허용한 뒤 다시 연결해
+                                주세요.
+                              </p>
+                            )}
+                            <p className="field-hint">
+                              절전 모드·브라우저 설정·네트워크에 따라 알림이 지연되거나 오지 않을 수
+                              있어요.
+                            </p>
+                          </section>
+                        </SettingsPanel>
+                        <div
+                          className="settings-save"
+                          hidden={settingsTab === 'together' || settingsTab === 'app'}
+                        >
+                          <span>
+                            {JSON.stringify(draft) === JSON.stringify(me.settings)
+                              ? '설정이 저장되어 있어요'
+                              : '저장하지 않은 변경사항이 있어요'}
+                          </span>
+                          <button className="primary" disabled={busy || !online}>
+                            {busy ? '저장 중…' : '변경사항 모두 저장'}
+                          </button>
+                        </div>
                       </form>
-                      <div>
+                      <SettingsPanel id="together" active={settingsTab}>
+                        <section className="card settings-card">
+                          <h2>
+                            <Users size={20} /> 함께하는 우리
+                          </h2>
+                          <p className="field-hint">
+                            같은 공간의 두 사람이 물 마시는 습관을 함께 만들어요.
+                          </p>
+                          <ul className="settings-members">
+                            {day?.members.map((member) => (
+                              <li key={member.id}>
+                                <span className="member-avatar">
+                                  <Droplet size={20} />
+                                </span>
+                                <strong>{member.display_name}</strong>
+                                <span>{member.id === me.id ? '나' : '함께하는 사람'}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          {(day?.members.length ?? 1) < 2 ? (
+                            <>
+                              <p>아직 함께하는 사람이 없어요. 초대 코드를 전해 연결해 보세요.</p>
+                              <button
+                                type="button"
+                                className="primary"
+                                disabled={busy || !online}
+                                onClick={() =>
+                                  void run(async () => {
+                                    const result = await api<Codes>('/api/invite', 'POST');
+                                    setCodes(result);
+                                    setSaved(false);
+                                  })
+                                }
+                              >
+                                초대 코드 발급 <ArrowRight size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <p className="field-hint">
+                              두 사람이 연결됐어요. 새 물 기록은 상대의 알림 설정에 따라 알려드려요.
+                            </p>
+                          )}
+                          <button type="button" onClick={() => setSettingsTab('alerts')}>
+                            상대 기록 알림 설정하기
+                          </button>
+                        </section>
+                      </SettingsPanel>
+                      <SettingsPanel id="app" active={settingsTab}>
                         <InstallApp />
                         <section className="card settings-card">
                           <h2>
-                            <Bell size={20} /> 이 기기의 알림
+                            <ShieldCheck size={20} /> 내 계정
                           </h2>
                           <dl className="status-list">
                             <div>
-                              <dt>브라우저 권한</dt>
-                              <dd>
-                                {
-                                  {
-                                    granted: '허용됨',
-                                    denied: '차단됨',
-                                    default: '아직 요청하지 않음',
-                                    unsupported: '지원하지 않음',
-                                  }[permission]
-                                }
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>이 기기 구독</dt>
-                              <dd>{device ? '브라우저 구독 있음' : '연결 필요'}</dd>
-                            </div>
-                            <div>
-                              <dt>서버의 활성 기기</dt>
-                              <dd>{me.subscription_count}대</dd>
-                            </div>
-                            <div>
-                              <dt>다음 예약 후보</dt>
-                              <dd>
-                                {me.next_notification
-                                  ? DateTime.fromISO(me.next_notification)
-                                      .setZone(me.settings.timezone)
-                                      .toFormat('M/d HH:mm')
-                                  : '예정 없음'}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>최근 정기 발송</dt>
-                              <dd>
-                                {me.last_scheduled_notification ? (
-                                  <>
-                                    {DateTime.fromISO(me.last_scheduled_notification.scheduled_at)
-                                      .setZone(me.settings.timezone)
-                                      .toFormat('M/d HH:mm')}
-                                    <br />
-                                    {{
-                                      accepted: '푸시 서비스 수락',
-                                      retry: '재시도 예정',
-                                      failed: '발송 실패',
-                                      expired: '구독 만료',
-                                      cancelled: '설정·목표에 따라 취소',
-                                      sending: '발송 중',
-                                      unknown: '결과 확인 필요',
-                                    }[me.last_scheduled_notification.status] ?? '결과 확인 필요'}
-                                  </>
-                                ) : (
-                                  '아직 발송 기록 없음'
-                                )}
-                              </dd>
+                              <dt>내 이름</dt>
+                              <dd>{me.display_name}</dd>
                             </div>
                           </dl>
                           <p className="field-hint">
-                            {me.next_amount_ml
-                              ? `다음에는 약 ${fmt(me.next_amount_ml)} ml를 안내해요. `
-                              : ''}
-                            기록에 따라 안내하는 양이 달라져요. 서버는 매분 확인하며, 기기·네트워크
-                            상태에 따라 도착이 늦어질 수 있어요.
-                          </p>
-                          <p className="field-hint">
-                            ‘푸시 서비스 수락’은 서버 발송 결과이며 휴대폰에서의 수신 확인은
-                            아니에요.
-                          </p>
-                          {waterSound}
-                          <button
-                            className="primary"
-                            disabled={busy || !online}
-                            onClick={() => void run(enableDevice)}
-                          >
-                            {device ? '이 기기 구독 다시 연결' : '이 기기 알림 허용·연결'}
-                          </button>
-                          <button
-                            disabled={busy || !online}
-                            onClick={() =>
-                              void run(async () => {
-                                const r = await api<{ accepted: number; total: number }>(
-                                  '/api/push/test',
-                                  'POST',
-                                );
-                                setNotice(
-                                  `푸시 서비스가 ${r.total}개 중 ${r.accepted}개 요청을 수락했어요. 실제 알림 표시는 휴대폰에서 확인해 주세요.`,
-                                );
-                                await refresh();
-                              })
-                            }
-                          >
-                            테스트 알림 보내기
-                          </button>
-                          <button
-                            disabled={busy || !device}
-                            onClick={() =>
-                              void run(async () => {
-                                const reg = await navigator.serviceWorker.getRegistration(
-                                    import.meta.env.BASE_URL,
-                                  ),
-                                  sub = await reg?.pushManager.getSubscription();
-                                if (sub) {
-                                  await api('/api/push/subscribe', 'DELETE', {
-                                    endpoint: sub.endpoint,
-                                  });
-                                  await sub.unsubscribe();
-                                }
-                                setDevice(false);
-                                setNotice('이 기기의 구독을 해제했어요.');
-                                await refresh();
-                              })
-                            }
-                          >
-                            이 기기 구독 해제
-                          </button>
-                          <button
-                            className="text-button"
-                            disabled={busy || !me.subscription_count}
-                            onClick={() => {
-                              if (
-                                window.confirm('이 사용자의 모든 기기에서 푸시 구독을 해제할까요?')
-                              )
-                                void run(async () => {
-                                  await api('/api/push/subscribe', 'DELETE', { all: true });
-                                  const reg = await navigator.serviceWorker.getRegistration(
-                                    import.meta.env.BASE_URL,
-                                  );
-                                  await (await reg?.pushManager.getSubscription())?.unsubscribe();
-                                  setDevice(false);
-                                  setNotice('모든 기기의 서버 구독을 해제했어요.');
-                                  await refresh();
-                                });
-                            }}
-                          >
-                            분실 기기 포함 모든 구독 해제
-                          </button>
-                          {permission === 'denied' && (
-                            <p className="field-hint">
-                              Chrome 주소창의 사이트 정보 → 권한 → 알림에서 허용한 뒤 다시 연결해
-                              주세요.
-                            </p>
-                          )}
-                          <p className="field-hint">
-                            절전 모드·브라우저 설정·네트워크에 따라 알림이 지연되거나 오지 않을 수
-                            있어요.
+                            가입 없이 이 기기에 연결되어 있어요. 새 기기에서는 보관한 복구 코드로
+                            이어서 사용할 수 있어요.
                           </p>
                         </section>
                         <section className="recovery-note">
@@ -811,8 +965,8 @@ export function App() {
                             </p>
                           </div>
                         </section>
-                      </div>
-                    </div>
+                      </SettingsPanel>
+                    </SettingsTabs>
                   )
                 )}
               </>
@@ -832,7 +986,7 @@ export function App() {
                 className={tab === key ? 'active' : ''}
                 onClick={() => {
                   setTab(key);
-                  if (key === 'settings') setDraft(me.settings);
+                  if (key === 'settings') setDraft((current) => current ?? me.settings);
                 }}
               >
                 <Icon size={21} />

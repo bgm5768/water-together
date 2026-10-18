@@ -34,6 +34,7 @@ export interface Settings {
   daily_goal_ml: number;
   default_drink_ml: number;
   reminders?: Reminder[];
+  partner_notifications?: boolean;
 }
 export const defaults: Settings = {
   enabled: true,
@@ -46,6 +47,7 @@ export const defaults: Settings = {
   daily_goal_ml: 2000,
   default_drink_ml: 200,
   reminders: defaultReminders,
+  partner_notifications: true,
 };
 export interface WaterLog {
   id: string;

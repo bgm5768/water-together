@@ -16,13 +16,14 @@ export interface Actor {
 }
 export interface SettingsRow extends Omit<
   Settings,
-  'enabled' | 'active_days' | 'stop_when_goal_reached' | 'reminders'
+  'enabled' | 'active_days' | 'stop_when_goal_reached' | 'reminders' | 'partner_notifications'
 > {
   user_id: string;
   enabled: number;
   active_days: string;
   stop_when_goal_reached: number;
   reminders: string;
+  partner_notifications: number;
 }
 export function settingsFrom(r: SettingsRow): Settings {
   return {
@@ -36,6 +37,7 @@ export function settingsFrom(r: SettingsRow): Settings {
     daily_goal_ml: r.daily_goal_ml,
     default_drink_ml: r.default_drink_ml ?? 200,
     reminders: r.reminders ? JSON.parse(r.reminders) : defaultReminders,
+    partner_notifications: r.partner_notifications !== 0,
   };
 }
 export async function readSettings(db: D1Database, id: string) {

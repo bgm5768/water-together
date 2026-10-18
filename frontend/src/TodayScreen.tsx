@@ -15,7 +15,7 @@ interface Props {
   online: boolean;
   connected: boolean;
   onRefresh: () => void;
-  onSettings: () => void;
+  onSettings: (section?: 'goal' | 'schedule' | 'alerts') => void;
   onHistory: () => void;
   onInvite: () => void;
   onAdd: (amount: number, when: string, key: string) => Promise<void>;
@@ -93,7 +93,11 @@ export function TodayScreen(p: Props) {
             </span>
           </span>
           <div className="toolbar-actions">
-            <button className="round-action" aria-label="알림 설정 열기" onClick={p.onSettings}>
+            <button
+              className="round-action"
+              aria-label="알림 설정 열기"
+              onClick={() => p.onSettings('alerts')}
+            >
               <Bell size={23} />
               {p.connected && p.me.settings.enabled && <i />}
             </button>
@@ -141,7 +145,7 @@ export function TodayScreen(p: Props) {
         <div className="today-metrics">
           <button
             className="metric-tile goal-tile"
-            onClick={p.onSettings}
+            onClick={() => p.onSettings('goal')}
             aria-label="하루 목표 변경"
           >
             <span className="metric-label">하루 목표</span>
@@ -156,7 +160,7 @@ export function TodayScreen(p: Props) {
               {percent === null ? '기록 확인 중' : `${percent}% 달성`}
             </span>
           </button>
-          <button className="metric-tile reminder-tile" onClick={p.onSettings}>
+          <button className="metric-tile reminder-tile" onClick={() => p.onSettings('schedule')}>
             <span className="metric-label">다음 리마인더</span>
             <span className="metric-value reminder-value">{reminder}</span>
             <span className="metric-sub">

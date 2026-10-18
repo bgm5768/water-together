@@ -76,4 +76,20 @@ test('repeated pushes alert again, survive bodyless payloads and only sound in o
     assert.ok(options.vibrate.length > 0);
   }
   assert.equal(messages.length, 2);
+  let partnerComplete: Promise<void> | undefined;
+  handlers.push({
+    data: {
+      json: () => ({
+        title: '가람님이 물을 기록했어요 💧',
+        body: '250 ml를 기록했어요.',
+        kind: 'partner',
+      }),
+    },
+    waitUntil: (promise: Promise<void>) => {
+      partnerComplete = promise;
+    },
+  });
+  await partnerComplete;
+  assert.equal(shown[2].options.tag, 'water-partner');
+  assert.notEqual(shown[2].options.tag, shown[0].options.tag);
 });

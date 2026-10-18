@@ -2,6 +2,7 @@ import { dueSlots, hydrationAt, localDate, windowOpen } from '../../shared/time'
 import { readSettings, settingsFrom, type Env, type SettingsRow } from './models';
 import { sendPush, pushConfigured, type Device } from './push';
 import { intakeToday, reminderMessage } from './reminders';
+import { flushPartnerNotifications } from './partner';
 async function deliver(
   env: Env,
   device: Device,
@@ -29,6 +30,7 @@ async function deliver(
 }
 export async function scheduled(env: Env, now = Date.now()) {
   if (!pushConfigured(env)) return;
+  await flushPartnerNotifications(env, undefined, now);
   const stamp = new Date(now).toISOString();
   // Recover bookkeeping, never re-send a claimed request with unknown outcome.
   await env.DB.prepare(
@@ -99,6 +101,9 @@ export async function scheduled(env: Env, now = Date.now()) {
   // At most once per UTC day; old idempotency keys cannot match current slots.
   if (new Date(now).getUTCHours() === 3 && new Date(now).getUTCMinutes() < 5) {
     await env.DB.batch([
+      env.DB.prepare('DELETE FROM partner_deliveries WHERE created_at<?').bind(
+        new Date(now - 30 * 86400000).toISOString(),
+      ),
       env.DB.prepare('DELETE FROM rate_limits WHERE expires_at<?').bind(now),
       env.DB.prepare('DELETE FROM notification_delivery_logs WHERE updated_at<?').bind(
         new Date(now - 30 * 86400000).toISOString(),

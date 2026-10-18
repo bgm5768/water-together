@@ -64,7 +64,7 @@ self.addEventListener('push', (event) => {
         body,
         icon: new URL('icon-192.png', self.registration.scope).href,
         badge: new URL('icon-192.png', self.registration.scope).href,
-        tag: 'water-reminder',
+        tag: message?.kind === 'partner' ? 'water-partner' : 'water-reminder',
         renotify: true,
         silent: false,
         vibrate: [120, 70, 120],

@@ -37,7 +37,7 @@ export function ReminderPlan({ settings, now }: { settings: Settings; now: numbe
       ) : (
         <p>알림을 켜고 받을 요일과 시간을 선택하면 분배 계획이 보여요.</p>
       )}
-      <small>설정 저장 후 적용 · 목표 달성 후 알림은 위의 ‘알림 쉬기’ 설정을 따라요.</small>
+      <small>저장 후 적용 · 목표 달성 후 알림은 ‘알림 설정’의 ‘알림 쉬기’를 따라요.</small>
     </div>
   );
 }

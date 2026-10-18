@@ -22,7 +22,7 @@ export function pushConfigured(env: Env) {
 export async function sendPush(
   env: Env,
   device: Device,
-  message = {
+  message: { title: string; body: string; kind?: 'partner' } = {
     title: '알림 연결 확인 💧',
     body: '연결됐어요! 설정한 시간마다 남은 목표에 맞춰 마실 양을 알려드릴게요.',
   },

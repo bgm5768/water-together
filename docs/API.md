@@ -53,3 +53,9 @@
 주요 상태: 400 검증 실패, 401 인증 실패, 403 출처/권한 실패, 404 경로/본인 기록 없음, 409 정원/충돌, 413 과대 본문, 415 JSON 아님, 429 제한 초과, 503 푸시 미설정, 500 내부 오류.
 
 초대·복구 제한은 Cloudflare가 설정하는 `CF-Connecting-IP` 기준입니다. Cloudflare를 우회하는 프록시에 Worker를 노출하지 마세요. 로그에는 토큰/복구 코드/푸시 엔드포인트를 넣지 않습니다.
+
+### 상대 기록 알림
+
+- Settings에 partner_notifications?: boolean 추가. 기본 true, PUT에서 생략하면 저장값 유지. 내 기기에서 상대 기록 알림을 받을지 정하는 옵션입니다.
+- POST /api/logs가 새 행을 생성하면 DB 트리거가 같은 그룹의 다른 사용자 중 수신 허용·활성 구독이 있는 기기에만 발송 대기를 생성합니다. log_id/subscription_id 기본키로 중복을 방지합니다. PATCH/DELETE에는 발송하지 않습니다.
+- 기록 API 응답 후 waitUntil로 처리하고 매분 Cron이 놓친 대기 및 일시적 실패를 재시도합니다. partner_deliveries는 정기 notification_delivery_logs와 분리합니다. 구독 만료는 비활성화하고 30일 지난 발송 이력은 정리합니다.
