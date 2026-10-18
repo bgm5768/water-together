@@ -40,7 +40,9 @@
 ```
 
 - active_days는 ISO 요일: 월=1, 일=7. 중복과 범위 오류 거부.
-- 간격은 30/45/60/90/120분, 목표는 정수 100~10,000ml.
+- 목표는 정수 100~10,000ml. start_time/end_time/interval_minutes는 구버전 호환 필드이며 고정 시각 예약에 사용하지 않습니다.
+- reminders: 8개 {id,time,enabled} 배열. id는 wake/before_breakfast/after_breakfast/before_lunch/after_lunch/before_dinner/after_dinner/bedtime을 중복 없이 포함하며 time은 HH:mm입니다. 생략하면 저장값을 유지합니다. 같은 시각은 한 번 발송합니다.
+- GET /api/me의 last_scheduled_notification: 본인의 최근 {scheduled_at,sent_at,status} 또는 null. accepted는 공급자 수락이며 단말 수신 확인이 아닙니다.
 - 기본 한 잔 용량(default_drink_ml)은 정수 1~3,000ml. 기존 사용자 기본값은 200ml이며, 구버전 클라이언트가 필드를 생략하면 저장된 값을 유지합니다.
 - 섭취량은 정수 1~3,000ml, 소비 시각은 2020-01-01 이후·서버 현재 시각+1분 이내.
 - 닉네임은 trim 후 1~24자. UI는 텍스트로 렌더링.

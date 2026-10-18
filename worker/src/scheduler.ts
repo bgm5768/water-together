@@ -1,4 +1,4 @@
-import { dueSlot, hydrationAt, localDate, windowOpen } from '../../shared/time';
+import { dueSlots, hydrationAt, localDate, windowOpen } from '../../shared/time';
 import { readSettings, settingsFrom, type Env, type SettingsRow } from './models';
 import { sendPush, pushConfigured, type Device } from './push';
 import { intakeToday, reminderMessage } from './reminders';
@@ -40,31 +40,31 @@ export async function scheduled(env: Env, now = Date.now()) {
     'SELECT * FROM notification_settings n WHERE enabled=1 AND EXISTS(SELECT 1 FROM push_subscriptions p WHERE p.user_id=n.user_id AND p.revoked_at IS NULL)',
   ).all<SettingsRow>();
   for (const row of users.results) {
-    const s = settingsFrom(row),
-      slot = dueSlot(now, s);
-    if (slot === null || localDate(slot, s.timezone) !== localDate(now, s.timezone)) continue;
-    const plan = hydrationAt(slot, s, await intakeToday(env, row.user_id, s, now));
-    if (!plan) continue;
-    const devices = await env.DB.prepare(
-      'SELECT id,user_id,encrypted_subscription_data FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
-    )
-      .bind(row.user_id)
-      .all<Device>();
-    for (const device of devices.results) {
-      const id = crypto.randomUUID();
-      const claim = await env.DB.prepare(
-        "INSERT INTO notification_delivery_logs(id,user_id,subscription_id,scheduled_at,status,idempotency_key,updated_at) VALUES(?,?,?,?,'sending',?,?) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id",
+    const s = settingsFrom(row);
+    for (const slot of dueSlots(now, s)) {
+      const plan = hydrationAt(slot, s, await intakeToday(env, row.user_id, s, now));
+      if (!plan) continue;
+      const devices = await env.DB.prepare(
+        'SELECT id,user_id,encrypted_subscription_data FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
       )
-        .bind(
-          id,
-          row.user_id,
-          device.id,
-          new Date(slot).toISOString(),
-          `${device.id}:${slot}`,
-          stamp,
+        .bind(row.user_id)
+        .all<Device>();
+      for (const device of devices.results) {
+        const id = crypto.randomUUID();
+        const claim = await env.DB.prepare(
+          "INSERT INTO notification_delivery_logs(id,user_id,subscription_id,scheduled_at,status,idempotency_key,updated_at) VALUES(?,?,?,?,'sending',?,?) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id",
         )
-        .first();
-      if (claim) await deliver(env, device, id, 1, now, plan);
+          .bind(
+            id,
+            row.user_id,
+            device.id,
+            new Date(slot).toISOString(),
+            `${device.id}:${slot}`,
+            stamp,
+          )
+          .first();
+        if (claim) await deliver(env, device, id, 1, now, plan);
+      }
     }
   }
   const retries = await env.DB.prepare(

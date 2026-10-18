@@ -1,4 +1,5 @@
 import type { Settings } from '../../shared/types';
+import { defaultReminders } from '../../shared/types';
 export interface Env {
   DB: D1Database;
   ALLOWED_ORIGIN: string;
@@ -15,12 +16,13 @@ export interface Actor {
 }
 export interface SettingsRow extends Omit<
   Settings,
-  'enabled' | 'active_days' | 'stop_when_goal_reached'
+  'enabled' | 'active_days' | 'stop_when_goal_reached' | 'reminders'
 > {
   user_id: string;
   enabled: number;
   active_days: string;
   stop_when_goal_reached: number;
+  reminders: string;
 }
 export function settingsFrom(r: SettingsRow): Settings {
   return {
@@ -33,6 +35,7 @@ export function settingsFrom(r: SettingsRow): Settings {
     timezone: r.timezone,
     daily_goal_ml: r.daily_goal_ml,
     default_drink_ml: r.default_drink_ml ?? 200,
+    reminders: r.reminders ? JSON.parse(r.reminders) : defaultReminders,
   };
 }
 export async function readSettings(db: D1Database, id: string) {

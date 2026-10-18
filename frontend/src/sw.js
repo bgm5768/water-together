@@ -59,13 +59,25 @@ self.addEventListener('push', (event) => {
       ? message.body.slice(0, 300)
       : '잠깐 쉬면서 물 한 잔 마셔보세요.';
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: new URL('icon-192.png', self.registration.scope).href,
-      badge: new URL('icon-192.png', self.registration.scope).href,
-      tag: 'water-reminder',
-      data: { url: self.registration.scope },
-    }),
+    (async () => {
+      await self.registration.showNotification(title, {
+        body,
+        icon: new URL('icon-192.png', self.registration.scope).href,
+        badge: new URL('icon-192.png', self.registration.scope).href,
+        tag: 'water-reminder',
+        renotify: true,
+        silent: false,
+        vibrate: [120, 70, 120],
+        data: { url: self.registration.scope },
+      });
+      // Audio requires an active page and a prior user gesture. Never play it in a worker.
+      const windows = await self.clients.matchAll({ type: 'window' });
+      const visible = windows.find(
+        (client) =>
+          client.visibilityState === 'visible' && client.url.startsWith(self.registration.scope),
+      );
+      visible?.postMessage({ type: 'WATER_REMINDER' });
+    })(),
   );
 });
 self.addEventListener('notificationclick', (event) => {

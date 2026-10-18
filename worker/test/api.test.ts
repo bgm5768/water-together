@@ -129,7 +129,7 @@ async function cron(now: number) {
   const r = await mf.dispatchFetch('http://localhost/__test/cron?now=' + now);
   assert.equal(r.status, 200, await r.text());
 }
-const scheduledAt = Date.parse('2025-05-05T00:00:00Z');
+const scheduledAt = Date.parse('2025-05-05T02:00:00Z');
 test('create, authenticate, safe hashes, and invalid token', async () => {
   const a = await create(),
     me = await request('/api/me', 'GET', undefined, a.token);
@@ -446,7 +446,8 @@ test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount d
           true,
         );
         assert.equal(headers.get('content-encoding'), 'aes128gcm');
-        assert.equal(headers.get('ttl'), '300');
+        assert.equal(headers.get('ttl'), '900');
+        assert.equal(headers.get('urgency'), 'high');
         const payload = Buffer.from(await new Response(options.body as BodyInit).arrayBuffer());
         assert.equal(payload.length, 4096);
         assert.equal(payload.includes(Buffer.from('이번에는 약')), false);
@@ -496,7 +497,7 @@ test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount d
         while (delimiter >= 0 && plain[delimiter] === 0) delimiter--;
         assert.equal(plain[delimiter], 2);
         const message = JSON.parse(plain.subarray(0, delimiter).toString());
-        assert.equal(message.title, '이번에는 약 154 ml 💧');
+        assert.equal(message.title, '이번에는 약 286 ml 💧');
         assert.match(message.body, /2,000 ml/);
       })();
       return { statusCode: 201, data: '' };
@@ -510,7 +511,75 @@ test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount d
   assert.equal(rows.results[0].status, 'accepted');
 });
 
-test('drinking ahead cancels a retry and suppresses the next scheduled push', async () => {
+test('fixed times persist independently, validate rows and survive old clients', async () => {
+  const { a, b } = await pair();
+  const initial = (await request('/api/me', 'GET', undefined, a.token)).data.settings;
+  assert.deepEqual(initial.reminders, defaults.reminders);
+  const reminders = initial.reminders.map((row: any, i: number) => ({
+    ...row,
+    time: i === 0 ? '07:32' : row.time,
+    enabled: i !== 1,
+  }));
+  assert.equal(
+    (await request('/api/settings', 'PUT', { ...initial, reminders }, a.token)).status,
+    200,
+  );
+  const { reminders: ignored, ...legacy } = initial;
+  assert.equal((await request('/api/settings', 'PUT', legacy, a.token)).status, 200);
+  assert.deepEqual(
+    (await request('/api/settings', 'GET', undefined, a.token)).data.reminders,
+    reminders,
+  );
+  assert.deepEqual(
+    (await request('/api/settings', 'GET', undefined, b.token)).data.reminders,
+    defaults.reminders,
+  );
+  for (const invalid of [
+    reminders.slice(1),
+    reminders.map((row: any) => ({ ...row, id: 'wake' })),
+    reminders.map((row: any) => ({ ...row, time: '25:00' })),
+  ])
+    assert.equal(
+      (await request('/api/settings', 'PUT', { ...initial, reminders: invalid }, a.token)).status,
+      400,
+    );
+});
+
+test('regular cron sends even ahead of pace, catches close edited times once and exposes own status', async () => {
+  const { a, b } = await pair();
+  await subscribe(a.token, 'fixed');
+  const reminders = defaults.reminders!.map((row, i) => ({
+    ...row,
+    time: i === 0 ? '11:00' : '11:01',
+    enabled: i < 2,
+  }));
+  await request('/api/settings', 'PUT', { ...defaults, reminders }, a.token);
+  await log(a.token, 1500, new Date(scheduledAt - 60000).toISOString());
+  let calls = 0;
+  fetchMock
+    .get('https://fcm.googleapis.com')
+    .intercept({ path: '/fcm/send/fixed', method: 'POST' })
+    .reply(() => {
+      calls++;
+      return { statusCode: 201, data: '' };
+    })
+    .times(2);
+  await cron(scheduledAt + 2 * 60000);
+  await cron(scheduledAt + 3 * 60000);
+  assert.equal(calls, 2);
+  const me = (await request('/api/me', 'GET', undefined, a.token)).data;
+  assert.equal(me.last_scheduled_notification.status, 'accepted');
+  assert.equal(
+    me.last_scheduled_notification.scheduled_at,
+    new Date(scheduledAt + 60000).toISOString(),
+  );
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, b.token)).data.last_scheduled_notification,
+    null,
+  );
+});
+
+test('reaching the goal cancels a retry and suppresses the next scheduled push', async () => {
   const a = await create();
   await subscribe(a.token, 'ahead');
   fetchMock
@@ -518,7 +587,7 @@ test('drinking ahead cancels a retry and suppresses the next scheduled push', as
     .intercept({ path: '/fcm/send/ahead', method: 'POST' })
     .reply(503);
   await cron(scheduledAt);
-  await log(a.token, 500, new Date(scheduledAt + 60000).toISOString());
+  await log(a.token, 2000, new Date(scheduledAt + 60000).toISOString());
   await cron(scheduledAt + 5 * 60000);
   await cron(scheduledAt + 60 * 60000);
   const rows = await db.prepare('SELECT status FROM notification_delivery_logs').all();
@@ -534,6 +603,7 @@ test('a delayed overnight slot never uses the new calendar day intake', async ()
     'PUT',
     {
       ...defaults,
+      reminders: defaults.reminders!.map((row, i) => ({ ...row, time: '23:58', enabled: i === 0 })),
       start_time: '23:58',
       end_time: '01:00',
       active_days: [1],

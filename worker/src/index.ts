@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DateTime, IANAZone } from 'luxon';
 import { dayBounds, localDate, nextHydration } from '../../shared/time';
 import type { Member, WaterLog } from '../../shared/types';
+import { reminderLabels } from '../../shared/types';
 import { HttpError, secret, hash, encrypt, rate, validEndpoint, unb64 } from './security';
 import { readSettings, type Env, type Actor } from './models';
 import { pushConfigured, sendPush, type Device } from './push';
@@ -37,6 +38,24 @@ const settingsSchema = z
       .refine((x) => IANAZone.isValidZone(x)),
     daily_goal_ml: z.number().int().min(100).max(10000),
     default_drink_ml: z.number().int().min(1).max(3000).optional(),
+    reminders: z
+      .array(
+        z
+          .object({
+            id: z.enum(
+              Object.keys(reminderLabels) as [
+                keyof typeof reminderLabels,
+                ...(keyof typeof reminderLabels)[],
+              ],
+            ),
+            time: timeSchema,
+            enabled: z.boolean(),
+          })
+          .strict(),
+      )
+      .length(8)
+      .refine((rows) => new Set(rows.map((r) => r.id)).size === 8)
+      .optional(),
   })
   .strict()
   .refine((x) => x.start_time !== x.end_time, {
@@ -250,6 +269,11 @@ async function route(req: Request, env: Env) {
       subscription_count: count?.n || 0,
       next_notification: next?.at || null,
       next_amount_ml: next?.amount_ml ?? null,
+      last_scheduled_notification: await stmt(
+        env.DB,
+        'SELECT scheduled_at,sent_at,status FROM notification_delivery_logs WHERE user_id=? ORDER BY scheduled_at DESC LIMIT 1',
+        actor.id,
+      ).first(),
       vapid_public_key: pushConfigured(env) ? env.VAPID_PUBLIC_KEY : null,
     });
   }
@@ -372,7 +396,7 @@ async function route(req: Request, env: Env) {
     await env.DB.batch([
       stmt(
         env.DB,
-        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),updated_at=? WHERE user_id=?',
+        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),reminders=COALESCE(?,reminders),updated_at=? WHERE user_id=?',
         +s.enabled,
         s.start_time,
         s.end_time,
@@ -382,6 +406,7 @@ async function route(req: Request, env: Env) {
         s.timezone,
         s.daily_goal_ml,
         s.default_drink_ml ?? null,
+        s.reminders ? JSON.stringify(s.reminders) : null,
         now,
         actor.id,
       ),

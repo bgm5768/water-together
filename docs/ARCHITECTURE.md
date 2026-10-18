@@ -5,7 +5,7 @@ flowchart LR
   A[두 사람의 브라우저 / 설치 PWA] -->|Bearer + HTTPS| W[Cloudflare Worker API]
   G[GitHub Pages] -->|정적 React / Manifest / SW| A
   W --> D[(Cloudflare D1)]
-  C[5분 Cron] --> S[시간대 / 목표 / 요일 검사]
+  C[1분 Cron] --> S[시간대 / 목표 / 요일 검사]
   S -->|원자적 선점| D
   S --> P[Web Push 공급자]
   P --> SW[기기의 Service Worker]

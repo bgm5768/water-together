@@ -1420,3 +1420,73 @@ body {
     height: 215px;
   }
 }
+
+.fixed-reminders {
+  min-width: 0;
+  padding: 0;
+}
+.fixed-reminders legend {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.reminder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #edf1f8;
+}
+.reminder-row > label {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+.reminder-row input[type='time'] {
+  width: 112px;
+  min-width: 0;
+  padding: 9px 5px;
+  font-size: 14px;
+}
+.reminder-row input[role='switch'] {
+  appearance: none;
+  width: 42px;
+  height: 26px;
+  border: 0;
+  border-radius: 20px;
+  background: #cbd6e5;
+  padding: 3px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.reminder-row input[role='switch']::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px #203b6922;
+  transition: transform 0.18s;
+}
+.reminder-row input[role='switch']:checked {
+  background: #2688ef;
+}
+.reminder-row input[role='switch']:checked::before {
+  transform: translateX(16px);
+}
+.schedule-reset {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.water-sound {
+  padding: 12px 0;
+  border-block: 1px solid #edf1f8;
+  margin-block: 16px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reminder-row input[role='switch'],
+  .reminder-row input[role='switch']::before {
+    transition: none;
+  }
+}

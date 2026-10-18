@@ -26,6 +26,8 @@ import { copy } from './copy';
 import { TodayScreen } from './TodayScreen';
 import { InstallApp } from './InstallApp';
 import { ReminderPlan } from './ReminderPlan';
+import { ReminderSchedule } from './ReminderSchedule';
+import { useWaterSound } from './WaterSound';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -33,6 +35,7 @@ const time = (iso: string, zone: string) => DateTime.fromISO(iso).setZone(zone).
 const supportsPush = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 export function App() {
+  const waterSound = useWaterSound();
   const [token, setToken] = useState(() => session.get()),
     [me, setMe] = useState<Me | null>(null),
     [day, setDay] = useState<DayData | null>(null);
@@ -585,45 +588,10 @@ export function App() {
                             <small>브라우저 권한과 기기 연결이 별도로 필요해요.</small>
                           </span>
                         </label>
-                        <div className="two-fields">
-                          <label>
-                            아침 · 알림 시작
-                            <input
-                              required
-                              type="time"
-                              value={draft.start_time}
-                              onChange={(e) => setDraft({ ...draft, start_time: e.target.value })}
-                            />
-                          </label>
-                          <label>
-                            취침 · 알림 종료
-                            <input
-                              required
-                              type="time"
-                              value={draft.end_time}
-                              onChange={(e) => setDraft({ ...draft, end_time: e.target.value })}
-                            />
-                          </label>
-                        </div>
-                        <p className="field-hint">
-                          종료 시각에는 발송하지 않아요. 자정을 넘는 일정은 시작 요일을 기준으로
-                          해요.
-                        </p>
-                        <label>
-                          알림 간격
-                          <select
-                            value={draft.interval_minutes}
-                            onChange={(e) =>
-                              setDraft({ ...draft, interval_minutes: Number(e.target.value) })
-                            }
-                          >
-                            {[30, 45, 60, 90, 120].map((n) => (
-                              <option value={n} key={n}>
-                                {n}분마다
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <ReminderSchedule
+                          value={draft.reminders}
+                          onChange={(reminders) => setDraft({ ...draft, reminders })}
+                        />
                         <fieldset>
                           <legend>알림 받을 요일</legend>
                           <div className="weekdays">
@@ -718,13 +686,43 @@ export function App() {
                                   : '예정 없음'}
                               </dd>
                             </div>
+                            <div>
+                              <dt>최근 정기 발송</dt>
+                              <dd>
+                                {me.last_scheduled_notification ? (
+                                  <>
+                                    {DateTime.fromISO(me.last_scheduled_notification.scheduled_at)
+                                      .setZone(me.settings.timezone)
+                                      .toFormat('M/d HH:mm')}
+                                    <br />
+                                    {{
+                                      accepted: '푸시 서비스 수락',
+                                      retry: '재시도 예정',
+                                      failed: '발송 실패',
+                                      expired: '구독 만료',
+                                      cancelled: '설정·목표에 따라 취소',
+                                      sending: '발송 중',
+                                      unknown: '결과 확인 필요',
+                                    }[me.last_scheduled_notification.status] ?? '결과 확인 필요'}
+                                  </>
+                                ) : (
+                                  '아직 발송 기록 없음'
+                                )}
+                              </dd>
+                            </div>
                           </dl>
                           <p className="field-hint">
                             {me.next_amount_ml
                               ? `다음에는 약 ${fmt(me.next_amount_ml)} ml를 안내해요. `
                               : ''}
-                            기록에 따라 양과 시각이 달라져요. 실제 발송은 약 5분 늦을 수 있어요.
+                            기록에 따라 안내하는 양이 달라져요. 서버는 매분 확인하며, 기기·네트워크
+                            상태에 따라 도착이 늦어질 수 있어요.
                           </p>
+                          <p className="field-hint">
+                            ‘푸시 서비스 수락’은 서버 발송 결과이며 휴대폰에서의 수신 확인은
+                            아니에요.
+                          </p>
+                          {waterSound}
                           <button
                             className="primary"
                             disabled={busy || !online}

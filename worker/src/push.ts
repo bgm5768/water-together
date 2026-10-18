@@ -33,7 +33,8 @@ export async function sendPush(
     if (!validEndpoint(sub.endpoint)) return 'failed';
     // RFC 8291 encryption keeps the recommended amount private from the push provider.
     payload = await buildPushPayload(
-      { data: JSON.stringify(message), options: { ttl: 300, urgency: 'normal' } },
+      // User-selected reminders are time-sensitive, including on sleeping phones.
+      { data: JSON.stringify(message), options: { ttl: 900, urgency: 'high' } },
       { ...sub, expirationTime: null },
       {
         publicKey: env.VAPID_PUBLIC_KEY!,
