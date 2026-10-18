@@ -2,10 +2,12 @@
 
 두 사람이 회원가입 없이 초대 코드로 연결하는 한국어 수분 섭취 PWA입니다. React + TypeScript + Vite 프론트엔드를 GitHub Pages에, API와 예약 알림을 Cloudflare Workers + D1에 각각 배포합니다.
 
+다음 작업을 시작하는 개발자·AI는 [현재 상태와 인수인계(context.md)](context.md)를 먼저 읽어 주세요. 최근 기능, 디자인 결정, 알림음 제약, 배포 및 검증 방법을 정리했습니다.
+
 - 앱: https://bgm5768.github.io/water-together/
 - API 상태: https://water-together-api.water-worker.workers.dev/api/health
 
-이 저장소의 `main` 변경은 GitHub Actions를 통해 프론트엔드에 자동 반영됩니다. 현재 Worker는 로컬 Wrangler OAuth로 배포했습니다. 백엔드 GitHub Actions 배포는 별도의 Cloudflare API 토큰을 저장소 Secrets에 등록한 경우에 사용할 수 있습니다.
+이 저장소의 `main`에서 프론트엔드·공유 코드 등 Pages 워크플로 대상 경로를 변경하면 GitHub Actions를 통해 프론트엔드에 자동 반영됩니다. 문서만 변경하면 프론트엔드는 재배포하지 않습니다. 현재 Worker는 로컬 Wrangler OAuth로 배포했습니다. 백엔드 GitHub Actions 배포는 별도의 Cloudflare API 토큰을 저장소 Secrets에 등록한 경우에 사용할 수 있습니다.
 
 배포 진행 및 검증 결과는 [검증 기록](docs/VERIFICATION.md)에 기록합니다. 로컬 자동 테스트의 푸시 서비스는 모의 응답이며, 실제 휴대폰 수신 성공을 의미하지 않습니다.
 
