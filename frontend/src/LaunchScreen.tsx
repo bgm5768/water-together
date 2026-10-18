@@ -34,33 +34,30 @@ export function LaunchScreen({
       aria-label="Water Together 시작 화면"
       aria-busy={!ready && !error}
     >
-      <div className="launch-atmosphere" aria-hidden="true" />
       <div className="launch-wordmark" aria-hidden="true">
         WATER<span>TOGETHER</span>
       </div>
       <div className="launch-stage" aria-hidden="true">
-        <div className="launch-orbit launch-orbit-back" />
-        <div className="launch-sculpture">
+        <div className="launch-ripple">
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="launch-mark">
           <img
-            src={`${import.meta.env.BASE_URL}brand/water-glass.webp`}
+            src={`${import.meta.env.BASE_URL}brand/water-mark.svg`}
             alt=""
-            width="768"
-            height="768"
+            width="180"
+            height="180"
             fetchPriority="high"
           />
-          <div className="launch-light-sweep" />
         </div>
-        <div className="launch-pool">
-          <i />
-          <i />
-          <i />
-        </div>
-        <div className="launch-orbit launch-orbit-front" />
-        <div className="launch-particle particle-one" />
-        <div className="launch-particle particle-two" />
+        <span className="launch-bubble bubble-one" />
+        <span className="launch-bubble bubble-two" />
+        <span className="launch-bubble bubble-three" />
       </div>
       <div className="launch-caption">
-        <p className="launch-eyebrow">A LITTLE WATER. A LITTLE CLOSER.</p>
+        <p className="launch-eyebrow">둘이서, 꾸준히</p>
         <h1>함께 채우는 하루.</h1>
         <div className="launch-progress" aria-hidden="true">
           <span />
@@ -77,8 +74,13 @@ export function LaunchScreen({
           </div>
         )}
       </div>
+      <div className="launch-waves" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
       <span className="launch-edition" aria-hidden="true">
-        YOUR DAILY FLOW
+        매일의 작은 습관, 함께 물
       </span>
     </section>
   );

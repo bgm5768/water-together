@@ -1,30 +1,18 @@
-// Run after updating design/water-glass-source.png (approved original artwork).
+// Generate icons from the shared light-blue water mark.
 import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-const source = fileURLToPath(new URL('../design/water-glass-source.png', import.meta.url));
+const source = fileURLToPath(new URL('../frontend/public/brand/water-mark.svg', import.meta.url));
 const publicDir = new URL('../frontend/public/', import.meta.url);
-await sharp(source)
-  .resize(768, 768)
-  .webp({ quality: 88 })
-  .toFile(fileURLToPath(new URL('brand/water-glass.webp', publicDir)));
-// Keep the full droplet inside the central maskable safe circle.
 for (const size of [32, 180, 192, 512]) {
-  const art = Math.round(size * 0.76);
-  const pad = Math.floor((size - art) / 2);
   const bytes = await sharp(source)
-    .resize(art, art)
-    .extend({
-      top: pad,
-      left: pad,
-      bottom: size - art - pad,
-      right: size - art - pad,
-      background: '#031225',
-    })
+    .resize(size, size)
+    .flatten({ background: '#e4ebff' })
     .png()
     .toBuffer();
-  writeFileSync(new URL(`icon-cinematic-${size}.png`, publicDir), bytes);
-  if (size === 192 || size === 512) writeFileSync(new URL(`icon-${size}.png`, publicDir), bytes);
+  writeFileSync(new URL('icon-water-' + size + '.png', publicDir), bytes);
+  if (size === 192 || size === 512)
+    writeFileSync(new URL('icon-' + size + '.png', publicDir), bytes);
 }
 // Android uses the alpha mask, not the RGB colors, for its small status-bar icon.
 const solid = Buffer.from(
@@ -40,7 +28,7 @@ writeFileSync(
     .png()
     .toBuffer(),
 );
-const png = await sharp(source).resize(48, 48).png().toBuffer();
+const png = await sharp(source).resize(48, 48).flatten({ background: '#e4ebff' }).png().toBuffer();
 const ico = Buffer.alloc(22);
 ico.writeUInt16LE(1, 2);
 ico.writeUInt16LE(1, 4);
@@ -51,4 +39,4 @@ ico.writeUInt16LE(32, 12);
 ico.writeUInt32LE(png.length, 14);
 ico.writeUInt32LE(22, 18);
 writeFileSync(new URL('favicon.ico', publicDir), Buffer.concat([ico, png]));
-console.log('Cinematic icons, splash art, transparent notification badge and favicon generated.');
+console.log('Matching water icons, transparent notification badge and favicon generated.');

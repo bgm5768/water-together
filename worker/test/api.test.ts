@@ -110,6 +110,75 @@ async function pair() {
   return { a, b: b.data as { token: string; recovery_code: string } };
 }
 const stamp = '2025-05-02T01:30:00.000Z';
+test('nickname changes only the authenticated user and is visible to their partner', async () => {
+  const { a, b } = await pair();
+  const before = (await request('/api/me', 'GET', undefined, a.token)).data;
+  assert.equal((await request('/api/me', 'PATCH', { display_name: '새 이름' })).status, 401);
+  for (const display_name of ['', '   ', '가'.repeat(25)])
+    assert.equal((await request('/api/me', 'PATCH', { display_name }, a.token)).status, 400);
+  assert.equal(
+    (await request('/api/me', 'PATCH', { display_name: '변경', user_id: 'other' }, a.token)).status,
+    400,
+  );
+  const result = await request('/api/me', 'PATCH', { display_name: '  물친구  ' }, a.token);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.display_name, '물친구');
+  const after = (await request('/api/me', 'GET', undefined, a.token)).data;
+  assert.equal(after.id, before.id);
+  assert.deepEqual(after.settings, before.settings);
+  assert.equal((await request('/api/me', 'GET', undefined, b.token)).data.display_name, '나래');
+  const peer = (await request('/api/day?date=2025-05-02', 'GET', undefined, b.token)).data;
+  assert.equal(peer.members.find((m: any) => m.id === before.id).display_name, '물친구');
+});
+
+test('month calendar aggregates both members, includes zero days and isolates other groups', async () => {
+  const { a, b } = await pair();
+  const outsider = await create('다른 공간');
+  const aid = (await request('/api/me', 'GET', undefined, a.token)).data.id;
+  const bid = (await request('/api/me', 'GET', undefined, b.token)).data.id;
+  await log(a.token, 100, '2025-04-30T14:59:59.000Z'); // April in Seoul
+  await log(a.token, 250, '2025-04-30T15:00:00.000Z');
+  await log(a.token, 350, '2025-05-01T05:00:00.000Z');
+  await log(b.token, 500, '2025-05-01T10:00:00.000Z');
+  await log(a.token, 900, '2025-05-31T15:00:00.000Z'); // June in Seoul
+  await log(outsider.token, 3000, '2025-05-01T01:00:00.000Z');
+  const result = await request('/api/month?month=2025-05', 'GET', undefined, a.token);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.days.length, 31);
+  assert.equal(result.data.members.length, 2);
+  assert.deepEqual(result.data.days[0].totals, { [aid]: 600, [bid]: 500 });
+  assert.ok(
+    result.data.days.slice(1).every((d: any) => Object.values(d.totals).every((n) => n === 0)),
+  );
+  assert.equal(
+    (await request('/api/month?month=2024-02', 'GET', undefined, a.token)).data.days.length,
+    29,
+  );
+  assert.equal((await request('/api/month?month=2025-05')).status, 401);
+  for (const query of [
+    'month=2025-13',
+    'month=2025-5',
+    'month=2019-12',
+    'month=2099-01',
+    'month=2025-05&group_id=other',
+  ])
+    assert.equal((await request('/api/month?' + query, 'GET', undefined, a.token)).status, 400);
+});
+
+test('monthly totals use viewer timezone and retain DST day boundaries', async () => {
+  const a = await create();
+  await request('/api/settings', 'PUT', { ...defaults, timezone: 'America/New_York' }, a.token);
+  const id = (await request('/api/me', 'GET', undefined, a.token)).data.id;
+  await log(a.token, 100, '2025-03-09T04:59:59.000Z');
+  await log(a.token, 200, '2025-03-09T05:00:00.000Z');
+  await log(a.token, 300, '2025-03-10T03:59:59.000Z');
+  await log(a.token, 400, '2025-03-10T04:00:00.000Z');
+  const { data } = await request('/api/month?month=2025-03', 'GET', undefined, a.token);
+  assert.equal(data.timezone, 'America/New_York');
+  assert.equal(data.days[7].totals[id], 100);
+  assert.equal(data.days[8].totals[id], 500);
+  assert.equal(data.days[9].totals[id], 400);
+});
 async function log(token: string, ml = 200, when = stamp, id = crypto.randomUUID()) {
   return request('/api/logs', 'POST', { amount_ml: ml, consumed_at: when }, token, {
     'Idempotency-Key': id,

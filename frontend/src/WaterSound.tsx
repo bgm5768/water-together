@@ -115,9 +115,37 @@ export function useWaterSound() {
         </p>
       )}
       <p className="field-hint">
-        앱을 닫거나 화면을 잠그면 휴대폰의 알림음이 나요. 이때의 소리는 휴대폰 알림 설정에서 변경할
-        수 있으며, 웹 앱에서 물소리로 지정할 수는 없어요.
+        앱을 보고 있을 때는 위 효과음, 화면이 꺼져 있거나 앱을 닫았을 때는 휴대폰에 설정된 알림음이
+        나요.
       </p>
+      <details className="sound-help">
+        <summary>화면이 꺼져 있을 때도 이 소리를 쓰려면</summary>
+        <p>
+          기본 알림음이 들리면 알림은 정상적으로 도착한 거예요. 웹 앱은 잠금 상태의 알림음을 직접
+          바꿀 수 없어요.
+        </p>
+        <a className="text-button" href={SOUND_URL} download="함께물-캔따고물따르기.mp3">
+          물소리 알림음 내려받기
+        </a>
+        <ol>
+          <li>다운로드한 MP3 파일을 휴대폰의 Notifications 폴더에 복사해 주세요.</li>
+          <li>
+            도착한 알림을 길게 누르고 설정 → 알림 카테고리 → 소리에서 이 파일을 선택해 주세요.
+          </li>
+          <li>앱을 닫거나 화면을 잠근 후 다음 알림에서 확인해 주세요.</li>
+        </ol>
+        <p>
+          Android 기종·브라우저에 따라 메뉴 이름과 파일 선택 지원이 달라요. 해당 메뉴가 없다면
+          휴대폰 전체 기본 알림음에서 선택해야 할 수 있어요.
+        </p>
+        <a
+          href="https://www.samsung.com/ph/support/mobile-devices/how-to-set-a-music-file-as-a-notification-sound-for-apps-on-your-galaxy-phone/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          갤럭시 알림음 설정 안내
+        </a>
+      </details>
     </div>
   );
 }

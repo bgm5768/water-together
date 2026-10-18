@@ -253,6 +253,72 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
   }
   const actor = await authenticate(req, env);
   await rate(env.DB, 'user:' + actor.id, 120, 60);
+  if (path === '/api/me' && method === 'PATCH') {
+    const input = await body(req, z.object({ display_name: nameSchema }).strict());
+    await stmt(
+      env.DB,
+      'UPDATE users SET display_name=?,updated_at=? WHERE id=?',
+      input.display_name,
+      now,
+      actor.id,
+    ).run();
+    return json({ display_name: input.display_name });
+  }
+  if (path === '/api/month' && method === 'GET') {
+    if ([...u.searchParams.keys()].some((k) => k !== 'month'))
+      throw new HttpError(400, '지원하지 않는 조회 조건이에요.');
+    const s = await readSettings(env.DB, actor.id);
+    const month = u.searchParams.get('month') || localDate(Date.now(), s.timezone).slice(0, 7);
+    const start = DateTime.fromISO(month + '-01', { zone: s.timezone });
+    if (
+      !/^\d{4}-\d{2}$/.test(month) ||
+      !start.isValid ||
+      start.toFormat('yyyy-MM') !== month ||
+      month < '2020-01' ||
+      month > localDate(Date.now(), s.timezone).slice(0, 7)
+    )
+      throw new HttpError(400, '조회할 월을 확인해 주세요.');
+    const dates = Array.from({ length: start.daysInMonth! }, (_, index) =>
+      start.plus({ days: index }).toISODate()!,
+    );
+    const members = (
+      await stmt(
+        env.DB,
+        'SELECT u.id,u.display_name,n.daily_goal_ml FROM group_members m JOIN users u ON u.id=m.user_id JOIN notification_settings n ON n.user_id=u.id WHERE m.group_id=? ORDER BY m.joined_at,m.user_id',
+        actor.group_id,
+      ).all<Omit<Member, 'total_ml'>>()
+    ).results;
+    // At most 94 bindings. Per-day UTC bounds preserve DST and viewer timezone.
+    // Aggregate in D1 instead of transferring a whole month's individual records.
+    const totals = (
+      await stmt(
+        env.DB,
+        `WITH days(date,start,end) AS (VALUES ${dates.map(() => '(?,?,?)').join(',')})
+       SELECT days.date,l.user_id,SUM(l.amount_ml) total_ml FROM days
+       LEFT JOIN water_logs l ON l.group_id=? AND l.consumed_at>=days.start AND l.consumed_at<days.end
+       GROUP BY days.date,l.user_id`,
+        ...dates.flatMap((date) => {
+          const bounds = dayBounds(date, s.timezone);
+          return [date, bounds.start, bounds.end];
+        }),
+        actor.group_id,
+      ).all<{ date: string; user_id: string | null; total_ml: number | null }>()
+    ).results;
+    return json({
+      month,
+      timezone: s.timezone,
+      members,
+      days: dates.map((date) => ({
+        date,
+        totals: Object.fromEntries(
+          members.map((member) => [
+            member.id,
+            totals.find((row) => row.date === date && row.user_id === member.id)?.total_ml || 0,
+          ]),
+        ),
+      })),
+    });
+  }
   if (path === '/api/me' && method === 'GET') {
     const settings = await readSettings(env.DB, actor.id);
     const count = await stmt(

@@ -70,6 +70,12 @@ export interface DayData {
   members: Member[];
   logs: WaterLog[];
 }
+export interface MonthData {
+  month: string;
+  timezone: string;
+  members: Omit<Member, 'total_ml'>[];
+  days: { date: string; totals: Record<string, number> }[];
+}
 export interface Me {
   id: string;
   display_name: string;

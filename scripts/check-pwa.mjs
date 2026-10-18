@@ -37,7 +37,7 @@ assert.ok(
   'Opaque squares must never be used as status-bar badges',
 );
 assert.ok(sw.includes("badge: new URL('notification-badge.png'"));
-for (const path of ['notification-badge.png', 'audio/can-pour.mp3', 'brand/water-glass.webp'])
+for (const path of ['notification-badge.png', 'audio/can-pour.mp3', 'brand/water-mark.svg'])
   assert.ok(assets.includes(base + path), `Missing offline asset: ${path}`);
 assert.ok(html.includes('Content-Security-Policy'));
 assert.ok(html.includes(`href="${base}manifest.webmanifest"`));

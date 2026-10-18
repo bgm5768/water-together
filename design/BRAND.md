@@ -1,4 +1,16 @@
-# Water Together — liquid glass
+# Water Together — current visual identity
+
+The active design now follows the main screen: pale blue canvas, white rounded
+surfaces, blue and mint water drops. `frontend/public/brand/water-mark.svg` is the
+shared code-native source for the launcher icon, notification panel icon and
+launch screen. `node scripts/generate-icons.mjs` generates `icon-water-*.png`,
+`favicon.ico`, compatible legacy icons and the transparent status-bar badge.
+
+The launch animation uses floating drops, expanding rings and layered bottom
+waves. Reduced-motion support and connection retry remain enabled. The older
+art below is retained as design history; it is no longer in the active precache.
+
+## Previous liquid-glass exploration
 
 The approved source `water-glass-source.png` was generated with the built-in
 imagegen tool on 2026-10-18. Production derivatives are in `frontend/public/brand`

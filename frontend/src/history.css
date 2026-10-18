@@ -1,0 +1,299 @@
+.month-history {
+  display: grid;
+  gap: 18px;
+}
+.month-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.month-toolbar h2 {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 20px;
+}
+.month-toolbar button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 13px;
+  background: white;
+  color: #287ff0;
+  display: grid;
+  place-items: center;
+}
+.month-toolbar button.month-today {
+  width: auto;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.month-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.month-summary section {
+  min-width: 0;
+  padding: 13px;
+  border-radius: 22px;
+  background: white;
+}
+.person-mine {
+  --person: #287ff0;
+  --person-bg: #eaf3ff;
+}
+.person-partner {
+  --person: #178b89;
+  --person-bg: #e5f7f4;
+}
+.person-label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: #4c5d76;
+}
+.person-label i,
+.calendar-legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--person);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.person-label small,
+.timeline-person span small {
+  color: var(--person);
+  background: var(--person-bg);
+  padding: 2px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+  margin-left: 3px;
+}
+.month-summary strong {
+  display: block;
+  color: var(--person);
+  font-size: clamp(19px, 5.5vw, 25px);
+  letter-spacing: -0.06em;
+  margin: 9px 0 7px;
+}
+.month-summary strong small {
+  font-size: 11px;
+  font-weight: 500;
+}
+.month-summary p {
+  color: #768398;
+  margin: 4px 0 0;
+  font-size: 10px;
+}
+.month-summary p b {
+  color: #45546b;
+  font-weight: 600;
+}
+.month-no-partner {
+  display: grid;
+  place-content: center;
+  color: #768398;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.month-calendar {
+  background: white;
+  border-radius: 24px;
+  padding: 17px 10px 12px;
+}
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 5px 18px;
+  font-size: 11px;
+  color: #63738a;
+}
+.calendar-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.calendar-legend small {
+  margin-left: auto;
+  font-size: 10px;
+}
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.calendar-weekdays {
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: #8290a3;
+}
+.calendar-weekdays span:first-child {
+  color: #dc8293;
+}
+.calendar-day {
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 1px;
+  border-radius: 13px;
+  min-height: 61px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.calendar-day.selected {
+  background: #eff5ff;
+  border-color: #7eaffb;
+}
+.calendar-number {
+  font-size: 12px;
+  line-height: 22px;
+  width: 22px;
+  height: 22px;
+  color: #344461;
+}
+.is-today .calendar-number {
+  background: #287ff0;
+  color: white;
+  border-radius: 50%;
+}
+.calendar-amount {
+  color: var(--person);
+  font-size: clamp(8px, 2.65vw, 11px);
+  line-height: 1.25;
+  letter-spacing: -0.04em;
+}
+.calendar-amount.goal-met {
+  font-weight: 800;
+}
+.calendar-day:disabled {
+  opacity: 0.3;
+}
+.calendar-note {
+  color: #8b96a8;
+  font-size: 9px;
+  text-align: center;
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+.history-timeline {
+  border-radius: 24px;
+  background: white;
+  padding: 20px 16px;
+}
+.history-timeline h2 {
+  font-size: 16px;
+}
+.timeline-logs {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+}
+.timeline-logs li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 0;
+  border-bottom: 1px solid #eef2f8;
+}
+.timeline-logs li:last-child {
+  border: 0;
+}
+.timeline-logs time {
+  width: 38px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #7e8c9e;
+  font-variant-numeric: tabular-nums;
+}
+.timeline-drop {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--person-bg);
+  color: var(--person);
+}
+.timeline-person {
+  flex: 1;
+  min-width: 0;
+}
+.timeline-person > span {
+  font-size: 11px;
+  display: block;
+  overflow-wrap: anywhere;
+  color: #65748b;
+}
+.timeline-person strong {
+  display: block;
+  color: var(--person);
+  font-size: 18px;
+  margin-top: 4px;
+}
+.timeline-person strong small {
+  font-size: 11px;
+}
+.timeline-logs .log-actions {
+  gap: 0;
+}
+.timeline-logs .log-actions button {
+  width: 28px;
+  height: 34px;
+}
+.settings-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 0;
+  border-radius: 20px;
+  padding: 16px;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 20px;
+  color: #334b6a;
+}
+.settings-name .name-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: #eaf3ff;
+  color: #287ff0;
+  border-radius: 16px;
+}
+.settings-name > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.settings-name strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+.settings-name small {
+  display: block;
+  color: #8797ac;
+  margin-top: 4px;
+  font-size: 11px;
+}
+.profile-name-button {
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #287ff0;
+  padding: 4px;
+}

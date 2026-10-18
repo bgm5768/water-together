@@ -2,12 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon';
 import {
   Droplet,
-  Plus,
   History,
   Bell,
   Sun,
   ArrowRight,
-  ArrowLeft,
   Check,
   RefreshCw,
   Settings2,
@@ -19,7 +17,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
-import type { DayData, Me, Settings, WaterLog, Member } from '../../shared/types';
+import type { DayData, MonthData, Me, Settings, WaterLog } from '../../shared/types';
 import { localDate } from '../../shared/time';
 import { api, ApiError, session, vapidBytes } from './api';
 import { copy } from './copy';
@@ -30,15 +28,18 @@ import { ReminderSchedule } from './ReminderSchedule';
 import { useWaterSound } from './WaterSound';
 import { SettingsTabs, SettingsPanel, type SettingsTab } from './SettingsTabs';
 import { LaunchScreen } from './LaunchScreen';
+import { MonthHistory } from './MonthHistory';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
-const time = (iso: string, zone: string) => DateTime.fromISO(iso).setZone(zone).toFormat('HH:mm');
 const supportsPush = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 export function App() {
   const waterSound = useWaterSound();
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('goal');
+  const [monthData, setMonthData] = useState<MonthData | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const [token, setToken] = useState(() => session.get()),
     [me, setMe] = useState<Me | null>(null),
     [day, setDay] = useState<DayData | null>(null);
@@ -77,10 +78,16 @@ export function App() {
         tab === 'history'
           ? date || localDate(Date.now(), current.settings.timezone)
           : localDate(Date.now(), current.settings.timezone);
-      const result = await api<DayData>('/api/day?date=' + selectedDate);
+      const [result, month] = await Promise.all([
+        api<DayData>('/api/day?date=' + selectedDate),
+        tab === 'history'
+          ? api<MonthData>('/api/month?month=' + selectedDate.slice(0, 7))
+          : Promise.resolve(null),
+      ]);
       if (version !== requestVersion.current) return;
       setMe(current);
       setDay(result);
+      if (month) setMonthData(month);
       setDraft((d) => d || current.settings);
       if (supportsPush()) {
         const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
@@ -233,6 +240,11 @@ export function App() {
     await refresh();
   }
   const visibleDay = day?.date === selected && day.timezone === me?.settings.timezone ? day : null;
+  const openName = () => {
+    setNameDraft(me?.display_name || '');
+    setError('');
+    setEditingName(true);
+  };
   const own = visibleDay?.members.find((m) => m.id === me?.id),
     partner = visibleDay?.members.find((m) => m.id !== me?.id);
   const dailyLogs = visibleDay?.logs.filter((l) => tab === 'history' || l.user_id === me?.id) || [];
@@ -333,10 +345,10 @@ export function App() {
                     <p className="eyebrow">
                       {tab === 'history' ? '우리의 하루하루' : '나만의 건강한 리듬'}
                     </p>
-                    <h1>{tab === 'history' ? '차곡차곡 쌓인 기록' : '나에게 맞는 물 마시기'}</h1>
+                    <h1>{tab === 'history' ? '함께 채운 한 달' : '나에게 맞는 물 마시기'}</h1>
                     <p className="muted">
                       {tab === 'history'
-                        ? '함께 마신 하루를 돌아보세요.'
+                        ? '두 사람의 매일을 한눈에, 한 달의 물 마시기.'
                         : '일상에 맞춰 알림과 목표를 설정해 보세요.'}
                     </p>
                   </div>
@@ -349,184 +361,41 @@ export function App() {
                     <RefreshCw size={20} className={loading ? 'spin' : ''} />
                   </button>
                 </div>
+                {tab === 'settings' && (
+                  <button
+                    className="settings-name"
+                    type="button"
+                    onClick={openName}
+                    aria-label={`닉네임 변경: ${me.display_name}`}
+                  >
+                    <span className="name-avatar">
+                      <Droplet size={22} />
+                    </span>
+                    <span>
+                      <strong>{me.display_name}</strong>
+                      <small>이름을 눌러 닉네임을 바꿔보세요</small>
+                    </span>
+                    <Pencil size={17} />
+                  </button>
+                )}
                 {tab !== 'settings' ? (
-                  <>
-                    <div className="date-row">
-                      <span>
-                        <Sun size={18} />
-                        {DateTime.fromISO(selected).setLocale('ko').toFormat('M월 d일 cccc')}
-                      </span>
-                      <div className="date-picker">
-                        <button
-                          aria-label="전날"
-                          onClick={() =>
-                            setDate(DateTime.fromISO(selected).minus({ days: 1 }).toISODate()!)
-                          }
-                        >
-                          <ArrowLeft size={18} />
-                        </button>
-                        <input
-                          aria-label="기록 날짜"
-                          type="date"
-                          value={selected}
-                          max={today}
-                          onChange={(e) => e.target.value && setDate(e.target.value)}
-                        />
-                        <button
-                          aria-label="다음 날"
-                          disabled={selected >= today}
-                          onClick={() =>
-                            setDate(DateTime.fromISO(selected).plus({ days: 1 }).toISODate()!)
-                          }
-                        >
-                          <ArrowRight size={18} />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="zone-note">
-                      {me.settings.timezone} 기준 · 목표는 현재 설정값
-                      {loading ? ' · 불러오는 중…' : ''}
-                    </p>
-                    <div className="dashboard-grid">
-                      <section className="primary-column">
-                        {own && <ProgressCard member={own} mine />}
-                        <section className="card log-card">
-                          <div className="section-title">
-                            <h2>두 사람의 기록</h2>
-                            <span className="count">{dailyLogs.length}회</span>
-                          </div>
-                          {!visibleDay ? (
-                            <p className="empty">
-                              {loading
-                                ? '기록을 불러오는 중…'
-                                : '이 날짜의 기록을 불러오지 못했어요.'}
-                            </p>
-                          ) : dailyLogs.length === 0 ? (
-                            <div className="empty">
-                              <Droplet size={28} />
-                              <p>아직 기록된 한 잔이 없어요.</p>
-                              <span>다른 날짜의 기록도 확인해 보세요.</span>
-                            </div>
-                          ) : (
-                            <ul className="logs">
-                              {dailyLogs.map((log) => (
-                                <li key={log.id}>
-                                  <span className="log-drop">
-                                    <Droplet size={18} />
-                                  </span>
-                                  <div>
-                                    <strong>
-                                      +{fmt(log.amount_ml)} <small>ml</small>
-                                    </strong>
-                                    <p>
-                                      {time(log.consumed_at, me.settings.timezone)}
-                                      {tab === 'history'
-                                        ? ' · ' +
-                                          day?.members.find((m) => m.id === log.user_id)
-                                            ?.display_name
-                                        : ''}
-                                    </p>
-                                  </div>
-                                  {log.user_id === me.id && (
-                                    <div className="log-actions">
-                                      <button
-                                        disabled={busy}
-                                        aria-label={`${time(log.consumed_at, me.settings.timezone)} ${log.amount_ml}ml 수정`}
-                                        onClick={() => openEdit(log)}
-                                      >
-                                        <Pencil size={16} />
-                                      </button>
-                                      <button
-                                        disabled={busy}
-                                        aria-label={`${time(log.consumed_at, me.settings.timezone)} ${log.amount_ml}ml 삭제`}
-                                        onClick={() => setDeleting(log)}
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </section>
-                      </section>
-                      <aside>
-                        {partner ? (
-                          <ProgressCard member={partner} />
-                        ) : !visibleDay ? (
-                          <section className="card">
-                            <p className="muted">
-                              {loading ? '기록을 불러오는 중…' : '새로고침으로 다시 불러와 주세요.'}
-                            </p>
-                          </section>
-                        ) : (
-                          <section className="card partner-empty">
-                            <span className="round-icon">
-                              <Users size={25} />
-                            </span>
-                            <h2>함께할 한 사람을 기다려요</h2>
-                            <p>
-                              초대 코드를 전하고
-                              <br />
-                              서로의 물 마시기를 응원해 주세요.
-                            </p>
-                            <button
-                              className="primary"
-                              disabled={busy}
-                              onClick={() =>
-                                void run(async () => {
-                                  const r = await api<Codes>('/api/invite', 'POST');
-                                  setCodes(r);
-                                  setSaved(false);
-                                })
-                              }
-                            >
-                              초대 코드 발급 <ArrowRight size={16} />
-                            </button>
-                          </section>
-                        )}
-                        <section className="reminder-card">
-                          <span className="small-icon">
-                            <Bell size={20} />
-                          </span>
-                          <div>
-                            <h3>
-                              {me.settings.enabled && device && permission === 'granted'
-                                ? '물 마실 때, 알려드릴게요'
-                                : '나만의 물 마시기 리듬'}
-                            </h3>
-                            <p>
-                              {me.settings.enabled
-                                ? '예약 알림 켜짐 · 지정한 시각에 안내'
-                                : '예약 알림 꺼짐'}
-                              <br />
-                              {device && permission === 'granted'
-                                ? '이 기기 브라우저 구독 있음'
-                                : '이 기기 알림 연결이 필요해요'}
-                            </p>
-                            <button
-                              className="text-button"
-                              onClick={() => {
-                                setSettingsTab('alerts');
-                                setTab('settings');
-                              }}
-                            >
-                              알림 설정 <ArrowRight size={14} />
-                            </button>
-                          </div>
-                        </section>
-                        <div className="gentle-note">
-                          <span>💧</span>
-                          <p>
-                            한 번에 많이보다,
-                            <br />
-                            <strong>조금씩 자주 마셔요.</strong>
-                          </p>
-                        </div>
-                      </aside>
-                    </div>
-                  </>
+                  <MonthHistory
+                    me={me}
+                    month={
+                      monthData?.month === selected.slice(0, 7) &&
+                      monthData.timezone === me.settings.timezone
+                        ? monthData
+                        : null
+                    }
+                    day={visibleDay}
+                    selected={selected}
+                    today={today}
+                    loading={loading}
+                    busy={busy}
+                    onSelect={setDate}
+                    onEdit={openEdit}
+                    onDelete={setDeleting}
+                  />
                 ) : (
                   draft && (
                     <SettingsTabs active={settingsTab} onChange={setSettingsTab}>
@@ -944,7 +813,16 @@ export function App() {
                           <dl className="status-list">
                             <div>
                               <dt>내 이름</dt>
-                              <dd>{me.display_name}</dd>
+                              <dd>
+                                <button
+                                  type="button"
+                                  className="profile-name-button"
+                                  onClick={openName}
+                                >
+                                  {me.display_name}
+                                  <Pencil size={14} />
+                                </button>
+                              </dd>
                             </div>
                           </dl>
                           <p className="field-hint">
@@ -994,6 +872,46 @@ export function App() {
         </>
       )}
       <footer>매일의 작은 습관, 둘이라서 더 꾸준하게.</footer>
+      {editingName && (
+        <Modal
+          title="닉네임 변경"
+          error={error}
+          onClose={busy ? undefined : () => setEditingName(false)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(async () => {
+                const result = await api<{ display_name: string }>('/api/me', 'PATCH', {
+                  display_name: nameDraft.trim(),
+                });
+                setMe((current) =>
+                  current ? { ...current, display_name: result.display_name } : current,
+                );
+                setEditingName(false);
+                setNotice('닉네임을 변경했어요. 상대에게도 새 이름으로 보여요.');
+                await refresh();
+              });
+            }}
+          >
+            <label>
+              새 닉네임
+              <input
+                autoFocus
+                required
+                maxLength={24}
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                autoComplete="nickname"
+              />
+            </label>
+            <p className="field-hint">1~24자 · 함께 보는 기록과 알림에도 이 이름이 표시돼요.</p>
+            <button className="primary" disabled={busy || !nameDraft.trim()} type="submit">
+              {busy ? '저장 중…' : '이름 저장'}
+            </button>
+          </form>
+        </Modal>
+      )}
       <LaunchScreen
         ready={!token || !!me}
         error={!me && !loading ? error : undefined}
@@ -1117,54 +1035,6 @@ export function App() {
         </Modal>
       )}
     </div>
-  );
-}
-function ProgressCard({ member, mine = false }: { member: Member; mine?: boolean }) {
-  const percent = Math.round((member.total_ml / member.daily_goal_ml) * 100),
-    remaining = Math.max(0, member.daily_goal_ml - member.total_ml);
-  return (
-    <section className={'card progress-card ' + (mine ? 'mine' : 'partner')}>
-      <div className="member-heading">
-        <span className="avatar">{member.display_name.slice(0, 1)}</span>
-        <div>
-          <h2>
-            {member.display_name} <span>{mine ? '나' : '함께하는 사람'}</span>
-          </h2>
-          <p>{mine ? '나의 수분 충전' : '오늘도 함께 채우는 중'}</p>
-        </div>
-        {percent >= 100 && <Check className="goal-check" />}
-      </div>
-      <div className="water-total">
-        <strong>{fmt(member.total_ml)}</strong>
-        <span> / {fmt(member.daily_goal_ml)} ml</span>
-      </div>
-      <div className="progress-label">
-        <span>목표 달성률</span>
-        <strong>{percent}%</strong>
-      </div>
-      <div
-        className="progress-track"
-        role="progressbar"
-        aria-label={`${member.display_name} 목표 달성률`}
-        aria-valuenow={Math.min(percent, 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuetext={`${percent}%`}
-      >
-        <div style={{ width: Math.min(percent, 100) + '%' }} />
-      </div>
-      <p className="progress-note">
-        {remaining ? (
-          <>
-            목표까지 <strong>{fmt(remaining)}ml</strong> 남았어요
-          </>
-        ) : (
-          <>
-            오늘의 목표를 채웠어요! <Check size={15} />
-          </>
-        )}
-      </p>
-    </section>
   );
 }
 function Onboarding({
