@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
-import { ArrowRight, Droplet, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { ArrowRight, Droplet, Pencil, Trash2, Users } from 'lucide-react';
 import type { Me, Member, WaterLog } from '../../shared/types';
 import { DrinkSheet } from './DrinkSheet';
 
@@ -17,15 +17,20 @@ interface Props {
   onSettings: (section?: 'goal' | 'schedule' | 'alerts') => void;
   onHistory: () => void;
   onInvite: () => void;
+  onQuickAdd: (amount: number) => Promise<void>;
   onAdd: (amount: number, when: string, key: string) => Promise<void>;
   onEdit: (log: WaterLog) => void;
   onDelete: (log: WaterLog) => void;
 }
 const fmt = (n: number) => n.toLocaleString('ko-KR');
+const MIN_WATER_LEVEL = 18;
+const MAX_WATER_LEVEL = 90;
 
 export function TodayScreen(p: Props) {
   const cup = p.me.settings.default_drink_ml ?? 200;
   const [choosing, setChoosing] = useState(false);
+  const [drinking, setDrinking] = useState(false);
+  const drinkAnimation = useRef<number | null>(null);
   const total = p.own?.total_ml;
   const previous = useRef({ total, day: p.today });
   const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
@@ -62,6 +67,10 @@ export function TodayScreen(p: Props) {
     };
   }, [total, p.today]);
   const percent = p.own ? Math.round((p.own.total_ml / p.own.daily_goal_ml) * 100) : null;
+  const consumedPercent = Math.min(100, Math.max(0, percent ?? 0));
+  const remainingPercent = percent === null ? null : Math.max(0, 100 - consumedPercent);
+  const waterLevel =
+    MIN_WATER_LEVEL + ((MAX_WATER_LEVEL - MIN_WATER_LEVEL) * consumedPercent) / 100;
   const partnerPercent = p.partner
     ? Math.round((p.partner.total_ml / p.partner.daily_goal_ml) * 100)
     : 0;
@@ -76,11 +85,24 @@ export function TodayScreen(p: Props) {
             .replace('AM', '오전')
             .replace('PM', '오후')
         : '예정 없음';
+  useEffect(
+    () => () => {
+      if (drinkAnimation.current) window.clearTimeout(drinkAnimation.current);
+    },
+    [],
+  );
+  const quickDrink = () => {
+    if (p.busy || !p.online || !p.own) return;
+    setDrinking(true);
+    if (drinkAnimation.current) window.clearTimeout(drinkAnimation.current);
+    drinkAnimation.current = window.setTimeout(() => setDrinking(false), 900);
+    void p.onQuickAdd(cup);
+  };
 
   return (
     <div className="water-today">
       <section
-        className={'water-stage' + (splash ? ' just-drank' : '')}
+        className={`water-stage${splash ? ' just-drank' : ''}${consumedPercent >= 70 ? ' water-deep' : ''}`}
         aria-label="오늘의 수분 섭취"
       >
         <header className="day-toolbar">
@@ -210,7 +232,14 @@ export function TodayScreen(p: Props) {
         </div>
 
         <div className="drink-controls">
-          <div className="cup-selector cup-preview" aria-hidden="true">
+          <button
+            type="button"
+            className={`cup-selector cup-preview cup-drink-button${drinking ? ' is-drinking' : ''}`}
+            disabled={p.busy || !p.online || !p.own}
+            aria-label={`${cup}ml 마신 것으로 기록`}
+            onClick={quickDrink}
+          >
+            <span className="cup-ripple" aria-hidden="true" />
             <span className="cup-droplet">
               <Droplet size={15} fill="currentColor" />
             </span>
@@ -225,19 +254,28 @@ export function TodayScreen(p: Props) {
               {cup}
               <small> ml</small>
             </span>
-          </div>
+            <span className="cup-action-label">{p.busy ? '기록 중…' : '물 마시기'}</span>
+          </button>
+          <button
+            type="button"
+            className="cup-amount-change"
+            disabled={p.busy || !p.online}
+            onClick={() => setChoosing(true)}
+          >
+            <Pencil size={12} /> 다른 용량 마시기
+          </button>
           <div
             className="water-progress"
             role="progressbar"
-            aria-label="나의 목표 달성률"
+            aria-label="오늘 마실 물의 남은 비율"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.min(percent || 0, 100)}
-            aria-valuetext={percent === null ? '기록 미확인' : `${percent}%`}
+            aria-valuenow={remainingPercent ?? 0}
+            aria-valuetext={remainingPercent === null ? '기록 미확인' : `${remainingPercent}% 남음`}
           >
             <span className="water-progress-label">
-              {percent ?? '—'}
-              <small>%</small>
+              {remainingPercent ?? '—'}
+              <small>% 남음</small>
             </span>
             <span>
               {percent === null
@@ -247,29 +285,20 @@ export function TodayScreen(p: Props) {
                   : `목표까지 ${fmt(Math.max(0, p.me.settings.daily_goal_ml - (p.own?.total_ml || 0)))} ml`}
             </span>
           </div>
-          <button
-            className="drink-button"
-            disabled={p.busy || !p.online || !p.own}
-            onClick={() => setChoosing(true)}
-          >
-            <Plus size={27} />
-            <strong>{p.busy ? '저장하는 중…' : '물 마시기'}</strong>
-            <span>양 조절하기</span>
-          </button>
         </div>
-        <div className="water-landscape" aria-hidden="true">
+        <div className="water-landscape" style={{ height: `${waterLevel}%` }} aria-hidden="true">
           <svg viewBox="0 0 600 240" preserveAspectRatio="none">
             <path
               className="wave-back wave-flow"
-              d="M0 55 Q150 5 300 55 T600 55 T900 55 T1200 55 V240 H0Z"
+              d="M0 18 Q150 0 300 18 T600 18 T900 18 T1200 18 V240 H0Z"
             />
             <path
               className="wave-middle wave-flow"
-              d="M0 80 Q150 130 300 80 T600 80 T900 80 T1200 80 V240 H0Z"
+              d="M0 28 Q150 48 300 28 T600 28 T900 28 T1200 28 V240 H0Z"
             />
             <path
               className="wave-front wave-flow"
-              d="M0 95 Q150 60 300 95 T600 95 T900 95 T1200 95 V240 H0Z"
+              d="M0 36 Q150 22 300 36 T600 36 T900 36 T1200 36 V240 H0Z"
             />
           </svg>
           <span className="water-bubble bubble-one" />

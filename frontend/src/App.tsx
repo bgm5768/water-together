@@ -340,6 +340,7 @@ export function App() {
                     setSaved(false);
                   })
                 }
+                onQuickAdd={(amount) => run(() => add(amount))}
                 onAdd={addFromCup}
                 onEdit={openEdit}
                 onDelete={setDeleting}
