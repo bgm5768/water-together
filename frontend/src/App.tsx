@@ -7,7 +7,6 @@ import {
   Sun,
   ArrowRight,
   Check,
-  RefreshCw,
   Settings2,
   Users,
   Copy,
@@ -290,6 +289,14 @@ export function App() {
           </div>
         )}
       </div>
+      {token && (
+        <div
+          className={`sync-progress${loading ? ' active' : ''}`}
+          role="progressbar"
+          aria-label="최신 기록 확인 중"
+          aria-hidden={!loading}
+        />
+      )}
       {!token ? (
         <Onboarding
           busy={busy}
@@ -317,7 +324,6 @@ export function App() {
                 busy={busy}
                 online={online}
                 connected={device && permission === 'granted' && me.subscription_count > 0}
-                onRefresh={() => void refresh()}
                 onSettings={(section = 'goal') => {
                   setSettingsTab(section);
                   setDraft((current) => current ?? me.settings);
@@ -352,14 +358,6 @@ export function App() {
                         : '일상에 맞춰 알림과 목표를 설정해 보세요.'}
                     </p>
                   </div>
-                  <button
-                    className="icon-button"
-                    onClick={() => void refresh()}
-                    disabled={loading || busy}
-                    aria-label="기록 새로고침"
-                  >
-                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                  </button>
                 </div>
                 {tab === 'settings' && (
                   <button

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
-import { ArrowRight, Bell, Droplet, Pencil, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
+import { ArrowRight, Droplet, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import type { Me, Member, WaterLog } from '../../shared/types';
 import { DrinkSheet } from './DrinkSheet';
 
@@ -14,7 +14,6 @@ interface Props {
   busy: boolean;
   online: boolean;
   connected: boolean;
-  onRefresh: () => void;
   onSettings: (section?: 'goal' | 'schedule' | 'alerts') => void;
   onHistory: () => void;
   onInvite: () => void;
@@ -92,24 +91,6 @@ export function TodayScreen(p: Props) {
               <small>의 하루</small>
             </span>
           </span>
-          <div className="toolbar-actions">
-            <button
-              className="round-action"
-              aria-label="알림 설정 열기"
-              onClick={() => p.onSettings('alerts')}
-            >
-              <Bell size={23} />
-              {p.connected && p.me.settings.enabled && <i />}
-            </button>
-            <button
-              className="round-action"
-              aria-label="기록 새로고침"
-              disabled={p.loading || p.busy}
-              onClick={p.onRefresh}
-            >
-              <RefreshCw size={21} className={p.loading ? 'spin' : ''} />
-            </button>
-          </div>
         </header>
 
         <div className="intake-hero">
