@@ -245,18 +245,9 @@ body {
 .intake-hero {
   text-align: center;
   margin: 30px 0 26px;
-  transition:
-    color 0.5s ease,
-    text-shadow 0.5s ease;
-}
-.water-deep .intake-hero {
-  color: #fff;
-  text-shadow: 0 2px 12px #1763ac66;
-}
-.water-deep .intake-hero h1 span,
-.water-deep .intake-hero > p,
-.water-deep .hero-number > span {
-  color: #eaf5ff;
+  padding: 14px 8px;
+  border-radius: 24px;
+  background: #ffffffed;
 }
 .intake-hero h1 {
   display: flex;
@@ -380,7 +371,7 @@ body {
   border-radius: 19px;
   padding: 13px 15px;
   margin-top: 15px;
-  background: #ffffff60;
+  background: #ffffffed;
 }
 .together-avatar {
   display: grid;
@@ -487,7 +478,8 @@ body {
   flex-direction: column;
   gap: 10px;
   width: 122px;
-  height: 150px;
+  min-height: 150px;
+  height: auto;
   padding: 17px 12px 12px;
   border: 1px solid #ffffff;
   border-radius: 25px;
@@ -532,13 +524,13 @@ body {
 }
 .cup-droplet {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 8px;
+  left: 8px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 30px;
-  border-radius: 0 0 13px 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: #dfeeff;
   color: #3396f4;
 }
@@ -547,6 +539,7 @@ body {
   display: block;
   width: 32px;
   height: 48px;
+  flex: 0 0 48px;
   background: #e6eff7;
   clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
   border-radius: 4px;
@@ -595,14 +588,15 @@ body {
   min-height: 34px;
   padding: 7px 12px;
   border: 0;
-  background: transparent;
-  color: #e8f3ff;
+  color: #245d9c;
+  background: #fffffff2;
+  margin-top: 8px;
   gap: 5px;
   font-size: 11px;
   font-weight: 650;
 }
 .cup-amount-change:hover:not(:disabled) {
-  background: #ffffff14;
+  background: #eaf4ff;
 }
 .cup-volume > svg {
   margin-left: 3px;
@@ -614,7 +608,11 @@ body {
   align-items: center;
   justify-content: space-between;
   margin: 13px 0 15px;
-  color: white;
+  color: #245d9c;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fffffff2;
+  gap: 12px;
   font-size: 11px;
 }
 .water-progress-label {
@@ -630,7 +628,7 @@ body {
 }
 .water-progress > span:last-child {
   font-weight: 600;
-  text-shadow: 0 1px 2px #196cd255;
+  text-align: right;
 }
 .direct-entry {
   padding: 8px 12px 0;
@@ -945,8 +943,14 @@ body {
 }
 .water-landscape > svg {
   width: 100%;
-  height: 100%;
+  height: 64px;
   display: block;
+}
+.water-landscape::after {
+  content: '';
+  position: absolute;
+  inset: 63px 0 0;
+  background: #2b83ee;
 }
 .wave-flow {
   animation: water-flow 14s linear infinite;
@@ -1034,7 +1038,7 @@ body {
   transform-origin: bottom;
   animation: glass-drink 0.85s ease-in-out;
 }
-.cup-drink-button.is-drinking .cup-droplet {
+.cup-drink-button.is-drinking .cup-droplet svg {
   animation: drop-pop 0.85s ease-out;
 }
 .cup-drink-button.is-drinking .cup-ripple {
@@ -1067,11 +1071,10 @@ body {
 }
 @keyframes drop-pop {
   45% {
-    transform: translate(38px, -18px) scale(1.2) rotate(12deg);
+    transform: translateY(-3px) scale(1.15);
   }
   75% {
-    transform: translate(50px, 5px) scale(0.75);
-    opacity: 0.35;
+    transform: translateY(1px) scale(0.9);
   }
 }
 @keyframes cup-ripple {
@@ -1261,12 +1264,16 @@ body {
   .intake-splash,
   .cup-drink-button.is-drinking,
   .cup-drink-button.is-drinking .glass-water,
-  .cup-drink-button.is-drinking .cup-droplet,
+  .cup-drink-button.is-drinking .cup-droplet svg,
+  .just-drank .drinking-glass,
   .cup-drink-button.is-drinking .cup-ripple {
     animation: none !important;
   }
   .water-bubble {
     opacity: 0.35;
+  }
+  .water-landscape {
+    transition: none;
   }
 }
 .wave-back {
@@ -1505,9 +1512,6 @@ body {
   .water-space {
     min-height: 18px;
   }
-  .cup-selector {
-    height: 140px;
-  }
 }
 @media (max-height: 760px) {
   .intake-hero {
@@ -1527,7 +1531,6 @@ body {
   }
   .cup-selector {
     width: 110px;
-    height: 134px;
   }
 }
 

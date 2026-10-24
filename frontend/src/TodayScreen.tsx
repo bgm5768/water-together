@@ -67,8 +67,12 @@ export function TodayScreen(p: Props) {
     };
   }, [total, p.today]);
   const percent = p.own ? Math.round((p.own.total_ml / p.own.daily_goal_ml) * 100) : null;
-  const consumedPercent = Math.min(100, Math.max(0, percent ?? 0));
-  const remainingPercent = percent === null ? null : Math.max(0, 100 - consumedPercent);
+  const consumedPercent = p.own
+    ? Math.min(100, Math.max(0, (p.own.total_ml / p.own.daily_goal_ml) * 100))
+    : 0;
+  const remainingPercent = p.own
+    ? Math.ceil((Math.max(0, p.own.daily_goal_ml - p.own.total_ml) * 100) / p.own.daily_goal_ml)
+    : null;
   const waterLevel =
     MIN_WATER_LEVEL + ((MAX_WATER_LEVEL - MIN_WATER_LEVEL) * consumedPercent) / 100;
   const partnerPercent = p.partner
@@ -102,7 +106,7 @@ export function TodayScreen(p: Props) {
   return (
     <div className="water-today">
       <section
-        className={`water-stage${splash ? ' just-drank' : ''}${consumedPercent >= 70 ? ' water-deep' : ''}`}
+        className={`water-stage${splash ? ' just-drank' : ''}`}
         aria-label="오늘의 수분 섭취"
       >
         <header className="day-toolbar">
@@ -139,7 +143,7 @@ export function TodayScreen(p: Props) {
               ? p.loading
                 ? '기록을 불러오는 중이에요'
                 : '새로고침으로 기록을 확인해 주세요'
-              : percent >= 100
+              : consumedPercent >= 100
                 ? '오늘의 목표를 채웠어요. 잘했어요!'
                 : '가볍게 한 잔, 나를 위한 작은 습관'}
           </p>
@@ -280,7 +284,7 @@ export function TodayScreen(p: Props) {
             <span>
               {percent === null
                 ? '기록 확인 중'
-                : percent >= 100
+                : consumedPercent >= 100
                   ? '목표 달성!'
                   : `목표까지 ${fmt(Math.max(0, p.me.settings.daily_goal_ml - (p.own?.total_ml || 0)))} ml`}
             </span>
