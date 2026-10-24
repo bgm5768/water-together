@@ -38,7 +38,6 @@ export function MonthHistory({
       date: start.plus({ days: i }).toISODate()!,
       totals: {} as Record<string, number>,
     }));
-  const elapsed = days.filter((d) => d.date <= today).length;
   const logs = day ? [...day.logs].sort((a, b) => b.consumed_at.localeCompare(a.consumed_at)) : [];
   const shift = (delta: number) => {
     const next = start.plus({ months: delta });
@@ -71,6 +70,13 @@ export function MonthHistory({
       <div className="month-summary">
         {members.map((member) => {
           const total = days.reduce((sum, d) => sum + (d.totals[member.id] || 0), 0);
+          const recordedDays = days.filter(
+            (d) => d.date <= today && (d.totals[member.id] || 0) > 0,
+          );
+          const recordedAverage = Math.round(
+            recordedDays.reduce((sum, d) => sum + (d.totals[member.id] || 0), 0) /
+              Math.max(1, recordedDays.length),
+          );
           const achieved = days.filter(
             (d) => d.date <= today && (d.totals[member.id] || 0) >= member.daily_goal_ml,
           ).length;
@@ -89,7 +95,7 @@ export function MonthHistory({
                 <small> ml</small>
               </strong>
               <p>
-                하루 평균 <b>{fmt(Math.round(total / Math.max(1, elapsed)))} ml</b>
+                기록한 날 평균 <b>{fmt(recordedAverage)} ml</b>
               </p>
               <p>
                 목표 달성 <b>{achieved}일</b>
@@ -154,7 +160,8 @@ export function MonthHistory({
           })}
         </div>
         <p className="calendar-note">
-          {me.settings.timezone} 기준 · 평균은 오늘까지, 목표 달성은 현재 목표 기준
+          {me.settings.timezone} 기준 · 평균은 1ml 이상 기록한 날만 계산 · 목표 달성은 현재 목표
+          기준
         </p>
       </section>
       <section className="history-timeline">
