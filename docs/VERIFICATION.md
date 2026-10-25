@@ -9,6 +9,7 @@
 - 알림 검증: 메인/첫 시작에서 실제 클릭 이벤트 중 권한 함수 호출, 기존 허용 구독 무요청 인식, 이미 허용된 권한 무재요청, 구독 POST 실패 후 기존 구독 재사용, 비활성 Service Worker 준비 대기, 차단/실행 중 차단/미지원 안내, 권한 창 닫기, 알림 없이 시작하기를 확인했다. 모든 Notification·PushManager·Service Worker·API는 대체 구현이며 실제 구독·푸시·사용자 데이터는 생성하지 않았다. 브라우저 실행 오류 0건. 실제 휴대폰 푸시 수신은 미검증이다.
 - 검증 스크립트와 결과: `C:\Users\USER\water-ui-qa\smooth-reminder-review.mjs`, `smooth-reminder-review/results.json`, `smooth-reminder-review/permissions-results.json`. 후자는 최종 권한 상태 변경 후 10개 알림/첫 시작 흐름을 재확인한 결과다.
 - 플랫폼 근거: [MDN Notification.requestPermission](https://developer.mozilla.org/en-US/docs/Web/API/Notification/requestPermission_static), [MDN PushManager.subscribe](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe). iOS/iPadOS의 홈 화면 앱·사용자 동작 조건은 [WebKit 문서](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)를 확인했다.
+- 운영 반영: `f313e4c`, Pages `40217636571` 및 Checks `40217636505` 성공. 공개 앱의 새 번들을 격리된 Chrome과 모의 API/알림 환경으로 검증해 0~100% 연속 표시·애니메이션·5개 화면 크기·매번 용량 선택·권장량 갱신·10개 알림/첫 시작 흐름이 모두 통과했다. 화면도 확인했으며 브라우저 실행 오류 0건. `C:\Users\USER\water-ui-qa\smooth-reminder-production\results.json`과 같은 폴더의 PNG에 결과를 남겼다. 실제 기기 알림 수신 검증을 의미하지 않는다.
 
 ## 2026-10-26 성취 문구·네 단계 물방울·달력 완성 표시
 
