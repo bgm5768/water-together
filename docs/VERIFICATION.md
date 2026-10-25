@@ -1,3 +1,13 @@
+## 2026-10-26 다음 리마인더를 누르지 않는 자동 시작
+
+- 알림 권한이 이미 허용됐고 브라우저 구독이 없으면 앱 시작·온라인 복귀·권한 허용 후 복귀 시 자동 등록한다. 신규 계정은 코드 보관 뒤 “시작하기”에서 허용과 구독을 이어서 처리한다. 미결정인 기존 계정에는 시작 안내를 자동 표시한다. 다음 리마인더/설정 버튼을 누르는 절차가 없어졌다. 브라우저 권한 요청은 계속 사용자의 클릭 안에서만 실행한다.
+- 나중에 하기·알림 없이 시작하기·기기/전체 구독 해제 선택은 계정·앱 경로별 로컬 값으로 기억한다. 꺼진 시간표·오프라인·차단·미지원·푸시 키 누락은 자동 등록을 시도하지 않는다. 기존 브라우저 endpoint는 원격에서 해제됐을 수 있으므로 자동 POST로 재활성화하지 않고 필요한 경우 명시적 재연결을 안내한다.
+- 자동 요청은 앱 세션당 한 번만 시도하고 수동 요청과 중복되지 않는다. 준비 중 계정이 바뀌면 등록을 중단한다. Service Worker 준비 지연, 등록 실패, 클릭이 필요한 브라우저는 첫 화면에서 다시 시작할 수 있다. 동일 구독을 재사용해 불필요한 중복 생성을 방지한다.
+- `npm run check` 통과: 타입 검사·38개 테스트·프론트/PWA 빌드·Worker dry-run. 최종 상태 전환 보정 후 프론트/PWA 빌드도 통과했다. Worker/DB 변경은 없다.
+- 격리된 Chrome의 모의 API/알림 환경에서 21개 시작·등록·건너뛰기·거부·실패·재시도·오프라인·구독 해제 흐름을 확인했다. 추가 3개는 열린 안내에서 외부 권한 허용 후 자동 연결·안내 닫힘, 브라우저 거절 후 외부 허용 시 자동 연결, 준비 중 계정 전환 시 등록 중단이다. 총 24개 흐름 통과, 브라우저 실행 오류 0건. 320×480 및 390×844 첫 안내의 가로 넘침 없음을 확인하고 화면을 검토했다.
+- 검증 파일: `C:\Users\USER\water-ui-qa\automatic-reminder-review.mjs`, `automatic-reminder-review/results.json`(21개), `automatic-reminder-review/targeted-results.json`(추가 3개). 모든 Notification·PushManager·Service Worker·API는 대체 구현으로 실제 계정·구독·푸시는 생성하지 않았다. 실제 휴대폰 수신은 미검증이다.
+- 브라우저 권한 조건은 [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Notification/requestPermission_static), [PushManager 구독 문서](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe), [iOS 홈 화면 Web Push 문서](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)를 확인했다.
+
 ## 2026-10-26 연속 진행률·자연스러운 알림 시작
 
 - 25·50·75·100% 단계 표시를 제거했다. 물방울 수위와 한 줄 진행 막대는 실제 섭취 비율을 0~100% 연속으로 표시하고 650ms 동안 전환한다. 숫자는 내림한 정수 백분율, 채움은 소수 비율까지 반영한다. 완료 체크·짧은 빛 효과는 100% 달성 시 표시하며 기존 기록 횟수·달력 완성을 유지한다.

@@ -34,10 +34,13 @@ type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 const supportsPush = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const reminderPauseKey = (id: string) => `water-reminders-paused:${import.meta.env.BASE_URL}:${id}`;
+const remindersPaused = (id: string) => localStorage.getItem(reminderPauseKey(id)) === 'yes';
 export function App() {
   const waterSound = useWaterSound();
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('goal');
   const [notificationHelp, setNotificationHelp] = useState(false);
+  const [reminderIntro, setReminderIntro] = useState(false);
   const [monthData, setMonthData] = useState<MonthData | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -67,6 +70,9 @@ export function App() {
   const requestVersion = useRef(0),
     mutation = useRef(false),
     newLogKey = useRef(crypto.randomUUID());
+  const automaticSetup = useRef('');
+  const reminderOffered = useRef('');
+  const deviceSetup = useRef<Promise<void> | null>(null);
   const today = localDate(clock, me?.settings.timezone || 'Asia/Seoul');
   const selected = tab === 'history' ? date || today : today;
   const refresh = useCallback(async () => {
@@ -111,6 +117,43 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  useEffect(() => {
+    if (
+      !token ||
+      !me ||
+      loading ||
+      busy ||
+      codes ||
+      !online ||
+      !me.settings.enabled ||
+      !me.vapid_public_key ||
+      !supportsPush() ||
+      remindersPaused(me.id)
+    )
+      return;
+    if (Notification.permission === 'granted' && device && me.subscription_count) {
+      setReminderIntro(false);
+      return;
+    }
+    if (Notification.permission === 'default' && reminderOffered.current !== token) {
+      reminderOffered.current = token;
+      setReminderIntro(true);
+    } else if (
+      Notification.permission === 'granted' &&
+      (!device || !me.subscription_count) &&
+      automaticSetup.current !== token
+    ) {
+      automaticSetup.current = token;
+      void run(async () => {
+        try {
+          await enableDevice(true);
+        } catch (e) {
+          setReminderIntro(true);
+          throw e;
+        }
+      });
+    }
+  }, [token, me, loading, busy, codes, online, permission, device]);
   useEffect(() => {
     if (!notice) return;
     const timeout = window.setTimeout(() => setNotice(''), 4500);
@@ -213,7 +256,23 @@ export function App() {
             .toFormat("yyyy-MM-dd'T'HH:mm"),
     );
   }
-  async function enableDevice() {
+  function pauseReminders() {
+    if (me) localStorage.setItem(reminderPauseKey(me.id), 'yes');
+    setReminderIntro(false);
+  }
+  function enableDevice(automatic = false): Promise<void> {
+    if (deviceSetup.current) return deviceSetup.current;
+    const pending = connectDevice(automatic);
+    deviceSetup.current = pending;
+    const release = () => {
+      deviceSetup.current = null;
+    };
+    void pending.then(release, release);
+    return pending;
+  }
+  async function connectDevice(automatic: boolean) {
+    const expectedToken = token;
+    if (!automatic) setReminderIntro(false);
     if (!supportsPush() || Notification.permission === 'denied') {
       setPermission(supportsPush() ? 'denied' : 'unsupported');
       setNotificationHelp(true);
@@ -221,11 +280,14 @@ export function App() {
     }
     if (!me?.vapid_public_key)
       throw new Error('지금은 알림을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    // Automatic setup never opens a browser permission prompt.
+    if (automatic && Notification.permission !== 'granted') return;
     // Ask directly from the start/home button gesture; never prompt on page load.
     const permission =
       Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
     setPermission(permission);
     if (permission !== 'granted') {
+      if (permission === 'default') pauseReminders();
       setNotice('물 마실 계획은 첫 화면에서 볼 수 있어요. 알림은 나중에 켜도 괜찮아요.');
       return;
     }
@@ -246,14 +308,27 @@ export function App() {
         window.clearTimeout(timer);
       }
     }
+    if (session.get() !== expectedToken) return;
+    const existing = await reg.pushManager.getSubscription();
+    if (session.get() !== expectedToken || (automatic && remindersPaused(me.id))) return;
+    if (automatic && existing) {
+      // An existing endpoint may have been revoked on another device. Reconnecting
+      // it must remain explicit; never silently reactivate it through the upsert.
+      setDevice(true);
+      if (!me.subscription_count) setReminderIntro(true);
+      return;
+    }
     const sub =
-      (await reg.pushManager.getSubscription()) ||
+      existing ||
       (await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidBytes(me.vapid_public_key),
       }));
+    if (session.get() !== expectedToken || (automatic && remindersPaused(me.id))) return;
     const value = sub.toJSON();
     await api('/api/push/subscribe', 'POST', { endpoint: value.endpoint, keys: value.keys });
+    localStorage.removeItem(reminderPauseKey(me.id));
+    setReminderIntro(false);
     setDevice(true);
     await refresh();
     setNotice('이제 물 마실 때가 되면 필요한 양을 알려드릴게요 💧');
@@ -726,8 +801,10 @@ export function App() {
                                     await api('/api/push/subscribe', 'DELETE', {
                                       endpoint: sub.endpoint,
                                     });
+                                    pauseReminders();
                                     await sub.unsubscribe();
                                   }
+                                  pauseReminders();
                                   setDevice(false);
                                   setNotice('이 기기의 구독을 해제했어요.');
                                   await refresh();
@@ -748,6 +825,7 @@ export function App() {
                                 )
                                   void run(async () => {
                                     await api('/api/push/subscribe', 'DELETE', { all: true });
+                                    pauseReminders();
                                     const reg = await navigator.serviceWorker.getRegistration(
                                       import.meta.env.BASE_URL,
                                     );
@@ -985,7 +1063,8 @@ export function App() {
           </label>
           {offerStartReminders && (
             <p className="notification-start-note">
-              물 마실 시간과 양은 준비되어 있어요. 알림을 허용하면 때맞춰 알려드릴게요.
+              시작하면 알림 허용 창이 열려요. 한 번 허용하면 준비된 시간표에 맞춰 자동으로
+              알려드릴게요.
             </p>
           )}
           <button
@@ -996,17 +1075,38 @@ export function App() {
               if (offerStartReminders) void run(enableDevice);
             }}
           >
-            {offerStartReminders ? '알림 받고 시작하기' : '시작하기'} <ArrowRight size={17} />
+            시작하기 <ArrowRight size={17} />
           </button>
           {offerStartReminders && (
             <button
               className="text-button"
               disabled={!saved || busy}
-              onClick={() => setCodes(null)}
+              onClick={() => {
+                pauseReminders();
+                setCodes(null);
+              }}
             >
               알림 없이 시작하기
             </button>
           )}
+        </Modal>
+      )}
+      {reminderIntro && !codes && me && (
+        <Modal title="물 마실 때, 챙겨드릴게요" error={error} onClose={pauseReminders}>
+          <p>
+            물 마실 시간과 양은 준비되어 있어요. 알림을 한 번 허용하면 매번 연결할 필요 없이 때맞춰
+            알려드릴게요.
+          </p>
+          <button
+            className="primary"
+            disabled={busy || !online}
+            onClick={() => void run(enableDevice)}
+          >
+            알림 켜고 시작하기 <ArrowRight size={17} />
+          </button>
+          <button className="text-button" disabled={busy} onClick={pauseReminders}>
+            나중에 할게요
+          </button>
         </Modal>
       )}
       {notificationHelp && (
@@ -1016,7 +1116,7 @@ export function App() {
         >
           <p>
             {permission === 'denied'
-              ? '브라우저의 사이트 설정이나 기기의 알림 설정에서 함께 물의 알림을 허용해 주세요. 허용 후 이 화면으로 돌아와 다음 리마인더를 누르면 바로 시작할 수 있어요.'
+              ? '브라우저의 사이트 설정이나 기기의 알림 설정에서 함께 물의 알림을 허용해 주세요. 허용 후 앱으로 돌아오면 리마인더를 준비해요.'
               : 'iPhone·iPad는 홈 화면에 추가한 앱에서 알림을 받을 수 있어요. 다른 기기에서는 Chrome이나 Edge로 열어 주세요. 물 마실 계획은 알림 없이도 첫 화면에 표시돼요.'}
           </p>
           {permission === 'unsupported' && <InstallApp />}
