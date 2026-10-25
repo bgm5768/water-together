@@ -62,8 +62,8 @@ self.addEventListener('push', (event) => {
     (async () => {
       await self.registration.showNotification(title, {
         body,
-        icon: new URL('icon-water-192.png', self.registration.scope).href,
-        badge: new URL('notification-badge.png', self.registration.scope).href,
+        // Keep the small app badge without a separate image beside the message.
+        badge: new URL('notification-droplet-badge.png', self.registration.scope).href,
         tag: message?.kind === 'partner' ? 'water-partner' : 'water-reminder',
         renotify: true,
         silent: false,

@@ -14,6 +14,8 @@
 
 ## 2. 서비스와 현재 상태
 
+2026-10-26 아이콘 통일: 앱·favicon·Apple 아이콘과 알림 badge를 “물 마시기” 버튼의 Lucide `Droplet` 모양으로 맞췄다. 생성 스크립트가 같은 컴포넌트를 렌더링하며 앱 아이콘은 버튼과 같은 파랑, badge는 투명 배경의 흰색 실루엣이다. Manifest/SW는 캐시 구분을 위해 새 `icon-droplet-*`/`notification-droplet-badge.png` 경로를 사용하며 이전 경로도 같은 모양으로 유지한다. 알림 메시지 옆의 큰 이미지는 SW의 `icon` 옵션을 제거해 없앴다. 로딩 화면은 유지한다. `npm run check`의 38개 테스트·양쪽 빌드와 최종 운영 경로 프론트/PWA 빌드, 생성 이미지 육안 확인을 완료했다. Worker/DB는 변경하지 않았다. 설치된 기기의 런처 아이콘 갱신 및 실제 시스템 알림 모양은 실기기 검증이 필요하다.
+
 2026-10-26 자동 리마인더 시작: 알림 권한이 이미 허용됐고 브라우저 구독이 없으면 앱 로딩/온라인 복귀/권한 허용 후 복귀 시 자동 등록한다. 새 계정은 코드 보관 뒤 일반 “시작하기”에서 권한 요청과 등록을 이어서 처리한다. 아직 권한을 정하지 않은 기존 계정에는 첫 화면에 시작 안내를 자동 표시하므로 메인의 다음 리마인더를 먼저 누를 필요가 없다. 권한 요청 자체는 클릭 안에서만 실행한다. 나중에 하기·알림 없이 시작하기·기기/전체 구독 해제는 계정·앱 경로별 로컬 중지 값으로 기억해 자동 등록을 막는다. 기존 브라우저 구독은 서버에서 해제됐을 수 있으므로 자동 POST로 되살리지 않으며 필요한 경우 첫 화면에서 명시적 재연결을 안내한다. 중복 실행·오프라인·비활성 시간표·미지원·차단·계정 전환을 처리했다. 38개 기존 테스트와 24개 모의 브라우저 흐름 검증을 통과했다. 프론트 변경이며 Worker/DB는 변경하지 않았다.
 
 최신 프론트 배포: `c317fbf`, Pages `40219035667` 및 Checks `40219035581` 성공. 공개 앱에서 모의 API·브라우저 알림으로 자동 시작 관련 24개 흐름을 다시 검증했으며 실행 오류는 0건이었다. 결과와 화면은 `C:\Users\USER\water-ui-qa\automatic-reminder-production\`에 저장했다. 실제 기기 푸시 수신은 별도 검사 대상이다.
@@ -77,12 +79,13 @@
 
 이전에 어두운 시네마틱 3D 유리 아이콘과 로딩을 만들었지만 사용자가 메인과의 불일치를 지적하여 되돌렸다. **요청 없이 어두운 3D 방향으로 복귀하지 않는다.** 현재 로딩은 두 물방울, 부드러운 부유/동심원/하단 물결 애니메이션과 흐린 안내 문구를 사용한다. reduced-motion을 존중한다.
 
-현재 브랜드 원본은 `frontend/public/brand/water-mark.svg`다. `scripts/generate-icons.mjs`가 sharp 0.35.2로 아래를 생성한다.
+앱·알림 아이콘은 “물 마시기” 버튼과 동일한 Lucide `Droplet`(채움, strokeWidth 1.5)을 사용한다. `scripts/generate-icons.mjs`가 React로 같은 컴포넌트를 SVG로 렌더링하고 sharp 0.35.2로 아래를 생성한다. 로딩 화면의 두 물방울 원본 `frontend/public/brand/water-mark.svg`는 유지한다.
 
-- 현재 앱 아이콘: `icon-water-32.png`, `icon-water-180.png`, `icon-water-192.png`, `icon-water-512.png`, `favicon.ico`.
-- 이전 경로 호환용 `icon-192.png`, `icon-512.png`도 유지한다.
-- 알림 큰 아이콘은 컬러 `icon-water-192.png`.
-- **상태 표시줄 badge는 투명 배경 단색 `notification-badge.png`(96×96)**. 불투명 컬러 아이콘을 badge로 쓰면 하얀 네모로 보이는 문제가 재발한다.
+- 현재 앱 아이콘: `icon-droplet-32.png`, `icon-droplet-180.png`, `icon-droplet-192.png`, `icon-droplet-512.png`, `favicon.ico`. 버튼과 같은 파랑 `#2888ef`와 배경 `#e4ebff`를 사용한다.
+- 이전 경로 호환용 `icon-water-*.png`, `icon-192.png`, `icon-512.png`, `icon.svg`도 같은 모양으로 생성한다.
+- 알림 메시지 왼쪽의 별도 큰 이미지는 제거했다. SW의 `showNotification`에 `icon`/`image`를 추가하지 않는다.
+- **상태 표시줄 badge는 같은 물방울의 투명 배경 단색 `notification-droplet-badge.png`(96×96)**. 이전 `notification-badge.png` 경로도 유지한다. 불투명 컬러 아이콘을 badge로 쓰면 하얀 네모로 보이는 문제가 재발한다.
+- Manifest·Apple·favicon PNG·SW 캐시에는 새 `droplet` 경로를 사용한다. 설치된 런처 아이콘의 갱신 시점과 시스템 기본 알림 표시는 기기/브라우저에 달려 있다.
 
 과거 3D 원본과 `icon-cinematic*`, `water-glass.webp`는 이력/호환을 위해 남아 있으나 현재 디자인의 기준이 아니다. 자세한 내용은 `design/BRAND.md`.
 

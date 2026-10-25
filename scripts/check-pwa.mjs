@@ -20,7 +20,7 @@ for (const asset of assets) {
   assert.ok(existsSync(new URL(asset.slice(base.length) || 'index.html', dist)), asset);
 }
 const html = readFileSync(new URL('index.html', dist), 'utf8');
-const badge = await sharp(readFileSync(new URL('notification-badge.png', dist)))
+const badge = await sharp(readFileSync(new URL('notification-droplet-badge.png', dist)))
   .ensureAlpha()
   .raw()
   .toBuffer({ resolveWithObject: true });
@@ -36,8 +36,8 @@ assert.ok(
   alpha.filter((a) => a === 0).length > alpha.length / 2,
   'Opaque squares must never be used as status-bar badges',
 );
-assert.ok(sw.includes("badge: new URL('notification-badge.png'"));
-for (const path of ['notification-badge.png', 'audio/can-pour.mp3', 'brand/water-mark.svg'])
+assert.ok(sw.includes("badge: new URL('notification-droplet-badge.png'"));
+for (const path of ['notification-droplet-badge.png', 'audio/can-pour.mp3', 'brand/water-mark.svg'])
   assert.ok(assets.includes(base + path), `Missing offline asset: ${path}`);
 assert.ok(html.includes('Content-Security-Policy'));
 assert.ok(html.includes(`href="${base}manifest.webmanifest"`));

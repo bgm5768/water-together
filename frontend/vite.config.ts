@@ -12,12 +12,12 @@ export default defineConfig(({ mode, command }) => {
     'icon.svg',
     'icon-192.png',
     'icon-512.png',
-    'icon-water-32.png',
-    'icon-water-180.png',
-    'icon-water-192.png',
-    'icon-water-512.png',
+    'icon-droplet-32.png',
+    'icon-droplet-180.png',
+    'icon-droplet-192.png',
+    'icon-droplet-512.png',
     'favicon.ico',
-    'notification-badge.png',
+    'notification-droplet-badge.png',
     'brand/water-mark.svg',
     'audio/can-pour.mp3',
   ];
@@ -70,13 +70,13 @@ export default defineConfig(({ mode, command }) => {
               theme_color: '#e4ebff',
               icons: [
                 {
-                  src: `${base}icon-water-192.png`,
+                  src: `${base}icon-droplet-192.png`,
                   sizes: '192x192',
                   type: 'image/png',
                   purpose: 'any maskable',
                 },
                 {
-                  src: `${base}icon-water-512.png`,
+                  src: `${base}icon-droplet-512.png`,
                   sizes: '512x512',
                   type: 'image/png',
                   purpose: 'any maskable',
