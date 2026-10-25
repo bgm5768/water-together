@@ -182,10 +182,11 @@ export function App() {
     n: number,
     when = new Date().toISOString(),
     key: string = crypto.randomUUID(),
+    message = `${fmt(n)}ml를 기록했어요.`,
   ) {
     await api('/api/logs', 'POST', { amount_ml: n, consumed_at: when }, key);
-    setNotice(`${fmt(n)}ml를 기록했어요.`);
     await refresh();
+    setNotice(message);
   }
   async function addFromCup(n: number, when: string, key: string) {
     if (mutation.current) throw new Error('다른 작업이 끝난 후 다시 시도해 주세요.');
@@ -193,7 +194,7 @@ export function App() {
     setBusy(true);
     setNotice('');
     try {
-      await add(n, when, key);
+      await add(n, when, key, `한 잔 더, 나를 챙겼어요 💧 · ${fmt(n)} ml`);
     } finally {
       mutation.current = false;
       setBusy(false);

@@ -28,14 +28,24 @@ const MAX_WATER_LEVEL = 90;
 export function TodayScreen(p: Props) {
   const cup = p.me.settings.default_drink_ml ?? 200;
   const [choosing, setChoosing] = useState(false);
+  const [reward, setReward] = useState<string | null>(null);
   const total = p.own?.total_ml;
   const previous = useRef({ total, day: p.today });
   const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
   const [displayTotal, setDisplayTotal] = useState(total ?? 0);
+  const [waterTotal, setWaterTotal] = useState(total ?? 0);
   useEffect(() => {
+    if (!reward) return;
+    const timer = window.setTimeout(() => setReward(null), 1400);
+    return () => window.clearTimeout(timer);
+  }, [reward]);
+  useEffect(() => {
+    // Keep the visible response for when the amount dialog has closed.
+    if (choosing) return;
     const before = previous.current;
     previous.current = { total, day: p.today };
     if (total === undefined) return;
+    setWaterTotal(total);
     if (
       before.total === undefined ||
       before.day !== p.today ||
@@ -62,7 +72,7 @@ export function TodayScreen(p: Props) {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
-  }, [total, p.today]);
+  }, [total, p.today, choosing]);
   const percent = p.own ? Math.round((p.own.total_ml / p.own.daily_goal_ml) * 100) : null;
   const consumedPercent = p.own
     ? Math.min(100, Math.max(0, (p.own.total_ml / p.own.daily_goal_ml) * 100))
@@ -71,7 +81,9 @@ export function TodayScreen(p: Props) {
     ? Math.ceil((Math.max(0, p.own.daily_goal_ml - p.own.total_ml) * 100) / p.own.daily_goal_ml)
     : null;
   const waterLevel =
-    MIN_WATER_LEVEL + ((MAX_WATER_LEVEL - MIN_WATER_LEVEL) * consumedPercent) / 100;
+    MIN_WATER_LEVEL +
+    (MAX_WATER_LEVEL - MIN_WATER_LEVEL) *
+      Math.min(1, Math.max(0, waterTotal / (p.own?.daily_goal_ml || 2000)));
   const partnerPercent = p.partner
     ? Math.round((p.partner.total_ml / p.partner.daily_goal_ml) * 100)
     : 0;
@@ -253,24 +265,35 @@ export function TodayScreen(p: Props) {
             </span>
           </div>
         </div>
-        <div className="water-landscape" style={{ height: `${waterLevel}%` }} aria-hidden="true">
-          <svg viewBox="0 0 600 100" preserveAspectRatio="none">
-            <path
-              className="wave-back wave-flow"
-              d="M0 28 C100 -6 200 -6 300 28 S500 62 600 28 S800 -6 900 28 S1100 62 1200 28 V100 H0Z"
-            />
-            <path
-              className="wave-middle wave-flow"
-              d="M0 42 C100 76 200 76 300 42 S500 8 600 42 S800 76 900 42 S1100 8 1200 42 V100 H0Z"
-            />
-            <path
-              className="wave-front wave-flow"
-              d="M0 58 C100 28 200 28 300 58 S500 88 600 58 S800 28 900 58 S1100 88 1200 58 V100 H0Z"
-            />
-          </svg>
-          <span className="water-bubble bubble-one" />
-          <span className="water-bubble bubble-two" />
-          <span className="water-bubble bubble-three" />
+        <div className="water-scene" style={{ height: `${waterLevel}%` }} aria-hidden="true">
+          <div className="water-landscape">
+            <svg viewBox="0 0 600 100" preserveAspectRatio="none">
+              <path
+                className="wave-back wave-flow"
+                d="M0 28 C100 -6 200 -6 300 28 S500 62 600 28 S800 -6 900 28 S1100 62 1200 28 V100 H0Z"
+              />
+              <path
+                className="wave-middle wave-flow"
+                d="M0 42 C100 76 200 76 300 42 S500 8 600 42 S800 76 900 42 S1100 8 1200 42 V100 H0Z"
+              />
+              <path
+                className="wave-front wave-flow"
+                d="M0 58 C100 28 200 28 300 58 S500 88 600 58 S800 28 900 58 S1100 88 1200 58 V100 H0Z"
+              />
+            </svg>
+            <span className="water-bubble bubble-one" />
+            <span className="water-bubble bubble-two" />
+            <span className="water-bubble bubble-three" />
+          </div>
+          {reward && (
+            <div key={reward} className="drink-reward">
+              <Droplet className="reward-drop" size={30} fill="currentColor" strokeWidth={1.5} />
+              <span className="reward-ripple" />
+              <span className="reward-ripple reward-ripple-delayed" />
+              <span className="reward-spark reward-spark-left" />
+              <span className="reward-spark reward-spark-right" />
+            </div>
+          )}
         </div>
       </section>
 
@@ -334,7 +357,10 @@ export function TodayScreen(p: Props) {
           initialAmount={cup}
           online={p.online}
           onClose={() => setChoosing(false)}
-          onSave={p.onAdd}
+          onSave={async (amount, when, key) => {
+            await p.onAdd(amount, when, key);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setReward(key);
+          }}
         />
       )}
     </div>

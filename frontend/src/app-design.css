@@ -474,6 +474,101 @@ body {
   width: 11px;
   height: 11px;
 }
+.drink-reward {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 58px;
+  width: min(240px, 90%);
+  height: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.reward-drop {
+  position: absolute;
+  left: calc(50% - 15px);
+  bottom: 0;
+  color: #d9f0ff;
+  stroke: #388deb;
+  filter: drop-shadow(0 3px 5px #fff9);
+  animation: reward-drop 440ms cubic-bezier(0.4, 0, 0.8, 0.5) both;
+}
+.reward-ripple {
+  position: absolute;
+  inset: -10px 0 auto;
+  height: 24px;
+  border: 2px solid #94d4ff;
+  border-radius: 50%;
+  background: #d6efff22;
+  box-shadow:
+    0 0 0 1px #448cf94d,
+    0 0 16px #b0dbff55;
+  animation: reward-ripple 850ms 340ms ease-out both;
+}
+.reward-ripple-delayed {
+  animation-delay: 490ms;
+}
+.reward-spark {
+  position: absolute;
+  left: calc(50% - 3px);
+  top: -6px;
+  width: 6px;
+  height: 9px;
+  border-radius: 60% 60% 50% 50%;
+  background: #bfe6ff;
+  box-shadow: 0 0 0 1px #328af240;
+  animation: reward-spark 600ms 350ms ease-out both;
+}
+.reward-spark-left {
+  --spark-x: -32px;
+}
+.reward-spark-right {
+  --spark-x: 32px;
+}
+@keyframes reward-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-70px) scale(0.65);
+  }
+  25% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-2px) scale(0.85, 1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(1.3, 0.35);
+  }
+}
+@keyframes reward-ripple {
+  0% {
+    opacity: 0;
+    transform: scale(0.08);
+  }
+  15% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes reward-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(calc(var(--spark-x) * 0.6), -22px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--spark-x), 5px) scale(0.4);
+  }
+}
 .drink-controls {
   z-index: 2;
   display: grid;
@@ -618,14 +713,17 @@ body {
   background: transparent;
   color: white;
 }
-.water-landscape {
+.water-scene {
   position: absolute;
-  z-index: -1;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 235px;
   pointer-events: none;
+}
+.water-landscape {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
 }
 .sr-only {
   position: absolute;
@@ -934,7 +1032,7 @@ body {
     transform: translateX(-600px);
   }
 }
-.water-landscape {
+.water-scene {
   transition: height 1s ease;
 }
 .intake-hero {
@@ -1178,6 +1276,9 @@ body {
   line-height: 1.8;
 }
 @media (prefers-reduced-motion: reduce) {
+  .drink-reward {
+    display: none;
+  }
   .wave-flow,
   .water-bubble,
   .floating-drop,
@@ -1190,7 +1291,7 @@ body {
   .water-bubble {
     opacity: 0.35;
   }
-  .water-landscape {
+  .water-scene {
     transition: none;
   }
 }
