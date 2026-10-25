@@ -5,6 +5,7 @@
 - 알림 메시지 옆 큰 이미지를 제거하기 위해 `showNotification`에서 `icon`을 생략한다. 기존 SW 테스트로 일반·본문 없는 이전 push·상대 알림 모두 작은 badge만 전달하고 `icon`/`image`는 없는지 확인했다. 소리·진동·그룹 구분은 유지한다.
 - `npm run check` 통과: 타입 검사, 38개 테스트, 프론트/PWA 빌드, Worker dry-run 빌드. 이미지 최종 생성 뒤 운영 경로 `/water-together/` 프론트/PWA 빌드도 통과했다. Worker/DB 변경은 없다.
 - 별도 알림 이미지와 앱 식별 badge의 구분은 [Notifications 표준](https://notifications.spec.whatwg.org/#notifications)에 따른다. 브라우저/OS가 표시하는 기본 식별 아이콘과 설치된 런처 갱신 시점은 제어하지 않는다. 실제 휴대폰 알림 수신·런처 갱신은 미검증이다.
+- 운영 반영: `eab013e`, Pages `40246310052` 및 Checks `40246310062` 성공. 공개 manifest·HTML의 새 아이콘 경로와 이미지 6개의 로컬/운영 바이트 일치를 확인했다. badge의 투명 픽셀은 5,849/9,216개이고 보이는 픽셀은 모두 흰색이며 앱 아이콘 중앙은 `#2888ef`다. 공개 SW를 모의 실행한 3개 알림 모두 새 badge를 사용하며 `icon`/`image`는 없다. 결과: `C:\Users\USER\water-ui-qa\icon-unification-production\results.json`.
 
 ## 2026-10-26 다음 리마인더를 누르지 않는 자동 시작
 
