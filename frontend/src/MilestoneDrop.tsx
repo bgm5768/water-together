@@ -5,15 +5,21 @@ export function goalProgress(amount: number, goal: number) {
   const target = Math.max(1, goal);
   return {
     percent: Math.min(100, Math.floor((intake * 100) / target)),
-    stage: Math.min(4, Math.floor((intake * 4) / target)),
+    fillPercent: Math.min(100, (intake * 100) / target),
     complete: amount >= goal && goal > 0,
   };
 }
 
 // The surrounding progress panel or calendar button provides the accessible label.
-export function MilestoneDrop({ stage, className = '' }: { stage: number; className?: string }) {
+export function MilestoneDrop({
+  percent,
+  className = '',
+}: {
+  percent: number;
+  className?: string;
+}) {
   const id = useId();
-  const level = Math.min(4, Math.max(0, stage));
+  const level = Math.min(100, Math.max(0, percent));
   const shape = 'M32 4C27 14 8 31 8 48a24 24 0 0 0 48 0C56 31 37 14 32 4Z';
   return (
     <svg
@@ -21,7 +27,7 @@ export function MilestoneDrop({ stage, className = '' }: { stage: number; classN
       viewBox="0 0 64 80"
       aria-hidden="true"
       focusable="false"
-      data-stage={level}
+      data-percent={level}
     >
       <defs>
         <clipPath id={`${id}-clip`}>
@@ -37,14 +43,14 @@ export function MilestoneDrop({ stage, className = '' }: { stage: number; classN
         <rect
           className="milestone-water"
           x="6"
-          y={76 - level * 18}
+          y={72 - level * 0.68}
           width="52"
           height="76"
           fill={`url(#${id}-fill)`}
         />
       </g>
       <path d={shape} fill="none" stroke="#80b9f5" strokeWidth="2" />
-      {level === 4 ? (
+      {level === 100 ? (
         <path
           d="m22 45 7 7 14-15"
           fill="none"

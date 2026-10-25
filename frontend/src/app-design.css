@@ -375,6 +375,24 @@ body {
   font-weight: 500;
   color: #74829b;
 }
+.reminder-sub {
+  color: #647b9b;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.reminder-action {
+  color: #2876d3;
+  font-weight: 650;
+}
+.notification-start-note {
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef6ff;
+  color: #43668a;
+  font-size: 12px;
+  line-height: 1.7;
+}
 .together-strip {
   display: flex;
   align-items: center;
@@ -751,30 +769,19 @@ body {
   line-height: 1.5;
   word-break: keep-all;
 }
-.drop-milestones {
+.drop-progress-track {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-}
-.drop-milestones > span {
-  display: grid;
-  gap: 3px;
-  text-align: center;
-  color: #7386a0;
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-}
-.drop-milestones i {
-  height: 3px;
-  border-radius: 3px;
+  height: 6px;
+  border-radius: 6px;
   background: #dce9f8;
+  overflow: hidden;
 }
-.drop-milestones .is-filled {
-  color: #246fc8;
-}
-.drop-milestones .is-filled i {
-  background: #4599f5;
+.drop-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #72c5ff, #287ff0);
+  transition: width 650ms ease;
 }
 .direct-entry {
   padding: 8px 12px 0;
@@ -1705,6 +1712,15 @@ body {
   }
 }
 @media (max-height: 540px) {
+  .metric-tile {
+    padding-block: 4px;
+  }
+  .together-strip {
+    margin-top: 6px;
+  }
+  .water-space {
+    flex-basis: 6px;
+  }
   .intake-hero {
     margin-block: 7px;
     padding-block: 5px;

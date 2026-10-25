@@ -1,3 +1,15 @@
+## 2026-10-26 연속 진행률·자연스러운 알림 시작
+
+- 25·50·75·100% 단계 표시를 제거했다. 물방울 수위와 한 줄 진행 막대는 실제 섭취 비율을 0~100% 연속으로 표시하고 650ms 동안 전환한다. 숫자는 내림한 정수 백분율, 채움은 소수 비율까지 반영한다. 완료 체크·짧은 빛 효과는 100% 달성 시 표시하며 기존 기록 횟수·달력 완성을 유지한다.
+- 물 마시기 버튼의 보조 문구 “용량 선택”을 제거했다. 매번 용량 선택창을 열어 확인 후 저장하는 흐름은 유지한다.
+- 구독 전에도 메인에 다음 시간·현재 남은 양 기준 권장량을 표시한다. “알림 받고 시작하기” 또는 메인 리마인더 클릭으로 설정 이동 없이 권한 요청·구독이 가능하다. 건너뛰기, 차단/미지원 안내, 기존 구독 인식·재사용을 지원한다. Service Worker가 아직 활성화되지 않았으면 최대 10초 준비를 기다린다. 로딩 시 자동 권한 요청이나 구독 재등록은 하지 않는다.
+- `npm run check`: 타입 검사·38개 테스트·프론트/PWA 빌드·Worker dry-run 통과. 최종 권한 상태 보정 후 프론트/PWA 빌드와 Prettier도 통과했다. Worker/DB 변경이나 운영 데이터 쓰기는 없다.
+- 격리된 Chrome과 모의 API에서 0~100% 101개 정수 값의 숫자·물방울 수위·막대 너비를 확인했다. 1,160/2,000ml는 58%, 1,999ml는 숫자 99%·수위 99.95%, 목표 초과는 100%. 20→80% 전환 중 중간 너비를 확인했다. 동작 줄이기에서는 전환을 생략한다.
+- 메인에서 알림 미연결 상태에도 18:00·400ml를 표시하고 200ml 기록 뒤 334ml로 갱신, 다음날 일정 표시, 버튼의 용량 선택창·저장을 확인했다. 320×480·320×568·390×844·430×932·1440×900 모두 첫 영역 하단과 메뉴 상단 일치, 물 마시기 버튼 전체 노출, 가로 넘침 없음.
+- 알림 검증: 메인/첫 시작에서 실제 클릭 이벤트 중 권한 함수 호출, 기존 허용 구독 무요청 인식, 이미 허용된 권한 무재요청, 구독 POST 실패 후 기존 구독 재사용, 비활성 Service Worker 준비 대기, 차단/실행 중 차단/미지원 안내, 권한 창 닫기, 알림 없이 시작하기를 확인했다. 모든 Notification·PushManager·Service Worker·API는 대체 구현이며 실제 구독·푸시·사용자 데이터는 생성하지 않았다. 브라우저 실행 오류 0건. 실제 휴대폰 푸시 수신은 미검증이다.
+- 검증 스크립트와 결과: `C:\Users\USER\water-ui-qa\smooth-reminder-review.mjs`, `smooth-reminder-review/results.json`, `smooth-reminder-review/permissions-results.json`. 후자는 최종 권한 상태 변경 후 10개 알림/첫 시작 흐름을 재확인한 결과다.
+- 플랫폼 근거: [MDN Notification.requestPermission](https://developer.mozilla.org/en-US/docs/Web/API/Notification/requestPermission_static), [MDN PushManager.subscribe](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe). iOS/iPadOS의 홈 화면 앱·사용자 동작 조건은 [WebKit 문서](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)를 확인했다.
+
 ## 2026-10-26 성취 문구·네 단계 물방울·달력 완성 표시
 
 - 오늘 마신 양 아래에 본인의 실제 기록 횟수로 “오늘 나를 챙긴 순간 N번”을 표시한다. 0회는 첫 한 잔 안내, 로딩 중에는 확인 중 안내를 유지한다. 하단은 채운 비율과 25·50·75·100% 단계 표시로 변경했다.

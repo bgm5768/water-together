@@ -118,7 +118,7 @@ export function MonthHistory({
       </div>
       <section className="month-calendar" aria-label="두 사람의 월간 섭취량 달력">
         <div className="calendar-collection">
-          <MilestoneDrop stage={4} />
+          <MilestoneDrop percent={100} />
           <span>이번 달 완성한 내 물방울</span>
           <strong>
             {month ? completedDrops : '—'}
@@ -161,7 +161,7 @@ export function MonthHistory({
               >
                 <span className="calendar-date">
                   <span className="calendar-number">{Number(d.date.slice(-2))}</span>
-                  {completed && <MilestoneDrop stage={4} className="calendar-completion" />}
+                  {completed && <MilestoneDrop percent={100} className="calendar-completion" />}
                 </span>
                 <span className={`calendar-amount person-mine ${completed ? 'goal-met' : ''}`}>
                   {!month ? '·' : future ? '—' : fmt(mine)}

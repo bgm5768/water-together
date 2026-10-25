@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import { ArrowRight, Droplet, Pencil, Trash2, Users } from 'lucide-react';
 import type { Me, Member, WaterLog } from '../../shared/types';
 import { DrinkSheet } from './DrinkSheet';
 import { goalProgress, MilestoneDrop } from './MilestoneDrop';
+import { nextHydration } from '../../shared/time';
 
 interface Props {
   me: Me;
@@ -15,6 +16,9 @@ interface Props {
   busy: boolean;
   online: boolean;
   connected: boolean;
+  now: number;
+  notificationPermission: string;
+  onEnableNotifications: () => void;
   onSettings: (section?: 'goal' | 'schedule' | 'alerts') => void;
   onHistory: () => void;
   onInvite: () => void;
@@ -87,14 +91,9 @@ export function TodayScreen(p: Props) {
     p.own &&
     reward.day === p.today &&
     reward.goal === p.own.daily_goal_ml &&
-    progress.stage > goalProgress(reward.before, reward.goal).stage;
-  const progressMessage = [
-    '한 모금씩 채워가요',
-    '첫 물방울을 채웠어요',
-    '벌써 절반을 채웠어요',
-    '물방울이 거의 완성됐어요',
-    '오늘의 물 챙기기 완료!',
-  ][progress?.stage ?? 0];
+    progress.complete &&
+    !goalProgress(reward.before, reward.goal).complete;
+  const progressMessage = progress?.complete ? '오늘의 물 챙기기 완료!' : '한 잔씩 나를 채우는 중';
   const waterLevel =
     MIN_WATER_LEVEL +
     (MAX_WATER_LEVEL - MIN_WATER_LEVEL) *
@@ -102,17 +101,33 @@ export function TodayScreen(p: Props) {
   const partnerPercent = p.partner
     ? Math.round((p.partner.total_ml / p.partner.daily_goal_ml) * 100)
     : 0;
+  const next = useMemo(
+    () => (p.own ? nextHydration(p.now, p.me.settings, p.own.total_ml) : null),
+    [p.now, p.me.settings, p.own],
+  );
+  const nextDate = next ? DateTime.fromISO(next.at).setZone(p.me.settings.timezone) : null;
+  const nextDay = nextDate?.toISODate();
+  const tomorrow = DateTime.fromISO(p.today).plus({ days: 1 }).toISODate();
+  const reminderLabel =
+    nextDay && nextDay !== p.today
+      ? nextDay === tomorrow
+        ? '내일 리마인더'
+        : `${nextDate!.toFormat('M/d')} 리마인더`
+      : '다음 리마인더';
   const reminder = !p.me.settings.enabled
     ? '알림 꺼짐'
-    : !p.connected
-      ? '알림 연결하기'
-      : p.me.next_notification
-        ? DateTime.fromISO(p.me.next_notification)
-            .setZone(p.me.settings.timezone)
-            .toFormat('a h:mm')
-            .replace('AM', '오전')
-            .replace('PM', '오후')
+    : !p.own
+      ? '확인 중'
+      : nextDate
+        ? nextDate.toFormat('a h:mm').replace('AM', '오전').replace('PM', '오후')
         : '예정 없음';
+  const canStartReminders = p.me.settings.enabled && !!next && !p.connected;
+  const reminderAction =
+    p.notificationPermission === 'denied'
+      ? '허용 방법'
+      : p.notificationPermission === 'unsupported'
+        ? '알림 안내'
+        : '알림 받기';
 
   return (
     <div className="water-today">
@@ -181,15 +196,27 @@ export function TodayScreen(p: Props) {
               {percent === null ? '기록 확인 중' : `${percent}% 달성`}
             </span>
           </button>
-          <button className="metric-tile reminder-tile" onClick={() => p.onSettings('schedule')}>
-            <span className="metric-label">다음 리마인더</span>
+          <button
+            className="metric-tile reminder-tile"
+            disabled={p.busy || (canStartReminders && !p.online)}
+            onClick={() =>
+              canStartReminders ? p.onEnableNotifications() : p.onSettings('schedule')
+            }
+            aria-label={
+              canStartReminders
+                ? `${reminderLabel} ${reminder}, ${reminderAction}`
+                : `${reminderLabel} ${reminder}, 시간 변경`
+            }
+          >
+            <span className="metric-label">{reminderLabel}</span>
             <span className="metric-value reminder-value">{reminder}</span>
-            <span className="metric-sub">
-              {p.connected && p.me.settings.enabled
-                ? p.me.next_amount_ml
-                  ? `약 ${fmt(p.me.next_amount_ml)} ml · 기록에 맞춰 조절`
-                  : '마신 양에 맞춰 알림을 쉬어요'
+            <span className="reminder-sub">
+              {next
+                ? next.amount_ml > 0
+                  ? `약 ${fmt(next.amount_ml)} ml`
+                  : '오늘 목표 완료'
                 : '나만의 물 마시기 리듬'}
+              {canStartReminders && <span className="reminder-action"> · {reminderAction}</span>}
             </span>
           </button>
         </div>
@@ -254,7 +281,7 @@ export function TodayScreen(p: Props) {
             type="button"
             className="cup-drink-button"
             disabled={p.busy || !p.online || !p.own}
-            aria-label="물 마시기 · 용량 선택"
+            aria-label="물 마시기"
             aria-haspopup="dialog"
             onClick={() => setChoosing(true)}
           >
@@ -262,7 +289,6 @@ export function TodayScreen(p: Props) {
               <Droplet size={30} fill="currentColor" strokeWidth={1.5} />
             </span>
             <span className="cup-action-label">{p.busy ? '기록 중…' : '물 마시기'}</span>
-            <span className="cup-volume">용량 선택</span>
           </button>
           <div
             className={`water-progress ${progress?.complete ? 'is-complete' : ''}`}
@@ -281,7 +307,7 @@ export function TodayScreen(p: Props) {
               {milestoneReached && (
                 <span key={reward.key} className="milestone-glow" aria-hidden="true" />
               )}
-              <MilestoneDrop stage={progress?.stage ?? 0} />
+              <MilestoneDrop percent={progress?.fillPercent ?? 0} />
             </div>
             <div className="water-progress-copy">
               <span className="water-progress-label">
@@ -292,13 +318,8 @@ export function TodayScreen(p: Props) {
                 {progress ? progressMessage : '기록 확인 중'}
               </span>
             </div>
-            <div className="drop-milestones" aria-hidden="true">
-              {[25, 50, 75, 100].map((step, index) => (
-                <span key={step} className={progress && progress.stage > index ? 'is-filled' : ''}>
-                  <i />
-                  {step}%
-                </span>
-              ))}
+            <div className="drop-progress-track" aria-hidden="true">
+              <span style={{ width: `${progress?.fillPercent ?? 0}%` }} />
             </div>
           </div>
         </div>
