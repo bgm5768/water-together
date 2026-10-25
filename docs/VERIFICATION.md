@@ -7,6 +7,7 @@
 - 격리된 Chrome의 모의 API/알림 환경에서 21개 시작·등록·건너뛰기·거부·실패·재시도·오프라인·구독 해제 흐름을 확인했다. 추가 3개는 열린 안내에서 외부 권한 허용 후 자동 연결·안내 닫힘, 브라우저 거절 후 외부 허용 시 자동 연결, 준비 중 계정 전환 시 등록 중단이다. 총 24개 흐름 통과, 브라우저 실행 오류 0건. 320×480 및 390×844 첫 안내의 가로 넘침 없음을 확인하고 화면을 검토했다.
 - 검증 파일: `C:\Users\USER\water-ui-qa\automatic-reminder-review.mjs`, `automatic-reminder-review/results.json`(21개), `automatic-reminder-review/targeted-results.json`(추가 3개). 모든 Notification·PushManager·Service Worker·API는 대체 구현으로 실제 계정·구독·푸시는 생성하지 않았다. 실제 휴대폰 수신은 미검증이다.
 - 브라우저 권한 조건은 [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Notification/requestPermission_static), [PushManager 구독 문서](https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe), [iOS 홈 화면 Web Push 문서](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)를 확인했다.
+- 운영 반영: `c317fbf`, Pages `40219035667` 및 Checks `40219035581` 성공. 공개 앱의 새 번들에서도 위 24개 모의 브라우저 흐름이 모두 통과했다. 자동 등록 완료 화면과 첫 방문 안내 화면을 확인했고 실행 오류는 0건이었다. 결과는 `C:\Users\USER\water-ui-qa\automatic-reminder-production\results.json`과 같은 폴더의 PNG에 남겼다. 실제 브라우저 권한·푸시 서비스·계정은 대체 구현으로 처리했다.
 
 ## 2026-10-26 연속 진행률·자연스러운 알림 시작
 
