@@ -283,6 +283,110 @@ test('concurrent second joins cannot exceed capacity and failed batch leaves no 
   assert.deepEqual(r.map((x) => x.status).sort(), [201, 409]);
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM users').first<{ n: number }>())?.n, 2);
 });
+test('recovery codes are encrypted, private, stable and never included in regular profile responses', async () => {
+  const { a, b } = await pair();
+  assert.equal((await request('/api/recovery-code')).status, 401);
+  const own = await request('/api/recovery-code', 'GET', undefined, a.token);
+  assert.equal(own.data.recovery_code, a.recovery_code);
+  assert.equal(own.headers.get('cache-control'), 'no-store');
+  assert.equal(
+    (await request('/api/recovery-code', 'GET', undefined, b.token)).data.recovery_code,
+    b.recovery_code,
+  );
+  assert.equal(
+    (await request('/api/recovery-code?user_id=other', 'GET', undefined, a.token)).status,
+    400,
+  );
+  assert.equal(
+    (await request('/api/recovery-code', 'POST', { user_id: 'other' }, a.token)).status,
+    400,
+  );
+  assert.equal(
+    (await request('/api/recovery-code', 'POST', {}, a.token)).data.recovery_code,
+    a.recovery_code,
+  );
+  const rows = await db
+    .prepare('SELECT encrypted_code FROM recovery_codes')
+    .all<{ encrypted_code: string }>();
+  assert.equal(rows.results.length, 2);
+  for (const row of rows.results) {
+    assert(row.encrypted_code);
+    assert(!row.encrypted_code.includes(a.recovery_code));
+    assert(!row.encrypted_code.includes(b.recovery_code));
+  }
+  assert(
+    !JSON.stringify((await request('/api/me', 'GET', undefined, a.token)).data).includes(
+      a.recovery_code,
+    ),
+  );
+});
+
+test('legacy accounts explicitly issue one reusable recovery code without losing their session or records', async () => {
+  const a = await create();
+  await log(a.token);
+  // Simulate an account created before encrypted recovery storage existed.
+  await db.prepare('DELETE FROM recovery_codes').run();
+  const oldVerifier = await db.prepare('SELECT recovery_hash FROM users').first();
+  assert.equal(
+    (await request('/api/recovery-code', 'GET', undefined, a.token)).data.recovery_code,
+    null,
+  );
+  assert.deepEqual(await db.prepare('SELECT recovery_hash FROM users').first(), oldVerifier);
+  const results = await Promise.all([
+    request('/api/recovery-code', 'POST', {}, a.token),
+    request('/api/recovery-code', 'POST', {}, a.token),
+  ]);
+  assert.deepEqual(
+    results.map((r) => r.status),
+    [200, 200],
+  );
+  const code = results[0].data.recovery_code;
+  assert.equal(code, results[1].data.recovery_code);
+  assert.notEqual(code, a.recovery_code);
+  assert.equal((await request('/api/recovery-code', 'POST', {}, a.token)).data.recovery_code, code);
+  assert.equal((await request('/api/me', 'GET', undefined, a.token)).status, 200);
+  assert.equal(
+    (await request('/api/day?date=2025-05-02', 'GET', undefined, a.token)).data.logs.length,
+    1,
+  );
+  assert.equal(
+    (await request('/api/recover', 'POST', { recovery_code: a.recovery_code })).status,
+    400,
+  );
+  const recovered = await request('/api/recover', 'POST', { recovery_code: code });
+  assert.equal(recovered.status, 200);
+  assert.equal((await request('/api/recovery-code', 'GET', undefined, a.token)).status, 401);
+  assert.equal(
+    (await request('/api/recovery-code', 'GET', undefined, recovered.data.token)).data
+      .recovery_code,
+    recovered.data.recovery_code,
+  );
+});
+
+test('legacy issuance racing account recovery cannot overwrite the winning code', async () => {
+  const a = await create();
+  await db.prepare('DELETE FROM recovery_codes').run();
+  const [issued, recovered] = await Promise.all([
+    request('/api/recovery-code', 'POST', {}, a.token),
+    request('/api/recover', 'POST', { recovery_code: a.recovery_code }),
+  ]);
+  if (recovered.status === 200) {
+    assert.equal(issued.status, 401);
+    assert.equal(
+      (await request('/api/recovery-code', 'GET', undefined, recovered.data.token)).data
+        .recovery_code,
+      recovered.data.recovery_code,
+    );
+  } else {
+    assert.equal(issued.status, 200);
+    assert([400, 409].includes(recovered.status));
+    assert.equal(
+      (await request('/api/recovery-code', 'GET', undefined, a.token)).data.recovery_code,
+      issued.data.recovery_code,
+    );
+  }
+});
+
 test('recovery preserves settings/logs, rotates code and revokes old session', async () => {
   const a = await create();
   await log(a.token);
@@ -290,6 +394,10 @@ test('recovery preserves settings/logs, rotates code and revokes old session', a
   const r = await request('/api/recover', 'POST', { recovery_code: a.recovery_code });
   assert.equal(r.status, 200);
   assert.notEqual(r.data.recovery_code, a.recovery_code);
+  assert.equal(
+    (await request('/api/recovery-code', 'GET', undefined, r.data.token)).data.recovery_code,
+    r.data.recovery_code,
+  );
   assert.equal((await request('/api/me', 'GET', undefined, a.token)).status, 401);
   assert.equal(
     (await request('/api/me', 'GET', undefined, r.data.token)).data.settings.daily_goal_ml,
@@ -311,6 +419,11 @@ test('concurrent recovery yields one new session only', async () => {
     request('/api/recover', 'POST', { recovery_code: a.recovery_code }),
   ]);
   assert.equal(results.filter((r) => r.status === 200).length, 1);
+  const winner = results.find((r) => r.status === 200)!;
+  assert.equal(
+    (await request('/api/recovery-code', 'GET', undefined, winner.data.token)).data.recovery_code,
+    winner.data.recovery_code,
+  );
   assert.equal(
     (
       await db
@@ -525,7 +638,7 @@ test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount d
         assert.equal(headers.get('urgency'), 'high');
         const payload = Buffer.from(await new Response(options.body as BodyInit).arrayBuffer());
         assert.equal(payload.length, 4096);
-        assert.equal(payload.includes(Buffer.from('이번에는 약')), false);
+        assert.equal(payload.includes(Buffer.from('지금 약')), false);
         // Independently decrypt RFC 8291 using the recipient's private key.
         const serverPublic = payload.subarray(21, 86);
         const serverKey = createPublicKey({
@@ -572,8 +685,10 @@ test('scheduled concurrency deduplicates, VAPID verifies, and encrypted amount d
         while (delimiter >= 0 && plain[delimiter] === 0) delimiter--;
         assert.equal(plain[delimiter], 2);
         const message = JSON.parse(plain.subarray(0, delimiter).toString());
-        assert.equal(message.title, '이번에는 약 286 ml 💧');
-        assert.match(message.body, /2,000 ml/);
+        assert.equal(message.title, '지금 약 286 ml 마실 시간이에요 💧');
+        assert.match(message.body, /지금 약 286 ml/);
+        assert.match(message.body, /0 \/ 2,000 ml/);
+        assert.match(message.body, /7회\(이번 포함\)/);
       })();
       return { statusCode: 201, data: '' };
     });

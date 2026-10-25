@@ -17,7 +17,6 @@ interface Props {
   onSettings: (section?: 'goal' | 'schedule' | 'alerts') => void;
   onHistory: () => void;
   onInvite: () => void;
-  onQuickAdd: (amount: number) => Promise<void>;
   onAdd: (amount: number, when: string, key: string) => Promise<void>;
   onEdit: (log: WaterLog) => void;
   onDelete: (log: WaterLog) => void;
@@ -29,8 +28,6 @@ const MAX_WATER_LEVEL = 90;
 export function TodayScreen(p: Props) {
   const cup = p.me.settings.default_drink_ml ?? 200;
   const [choosing, setChoosing] = useState(false);
-  const [drinking, setDrinking] = useState(false);
-  const drinkAnimation = useRef<number | null>(null);
   const total = p.own?.total_ml;
   const previous = useRef({ total, day: p.today });
   const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
@@ -89,19 +86,6 @@ export function TodayScreen(p: Props) {
             .replace('AM', '오전')
             .replace('PM', '오후')
         : '예정 없음';
-  useEffect(
-    () => () => {
-      if (drinkAnimation.current) window.clearTimeout(drinkAnimation.current);
-    },
-    [],
-  );
-  const quickDrink = () => {
-    if (p.busy || !p.online || !p.own) return;
-    setDrinking(true);
-    if (drinkAnimation.current) window.clearTimeout(drinkAnimation.current);
-    drinkAnimation.current = window.setTimeout(() => setDrinking(false), 900);
-    void p.onQuickAdd(cup);
-  };
 
   return (
     <div className="water-today">
@@ -235,28 +219,17 @@ export function TodayScreen(p: Props) {
         <div className="drink-controls">
           <button
             type="button"
-            className={`cup-drink-button${drinking ? ' is-drinking' : ''}`}
+            className="cup-drink-button"
             disabled={p.busy || !p.online || !p.own}
-            aria-label={`물 마시기 · ${cup}ml 마신 것으로 기록`}
-            onClick={quickDrink}
+            aria-label="물 마시기 · 용량 선택"
+            aria-haspopup="dialog"
+            onClick={() => setChoosing(true)}
           >
-            <span className="cup-ripple" aria-hidden="true" />
             <span className="cup-droplet" aria-hidden="true">
               <Droplet size={30} fill="currentColor" strokeWidth={1.5} />
             </span>
             <span className="cup-action-label">{p.busy ? '기록 중…' : '물 마시기'}</span>
-            <span className="cup-volume">
-              {cup}
-              <small> ml</small>
-            </span>
-          </button>
-          <button
-            type="button"
-            className="cup-amount-change"
-            disabled={p.busy || !p.online}
-            onClick={() => setChoosing(true)}
-          >
-            <Pencil size={12} /> 다른 용량 마시기
+            <span className="cup-volume">용량 선택</span>
           </button>
           <div
             className="water-progress"

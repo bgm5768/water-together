@@ -1,14 +1,15 @@
 import { z } from 'zod';
 import { DateTime, IANAZone } from 'luxon';
-import { dayBounds, localDate, nextHydration } from '../../shared/time';
+import { dayBounds, hydrationNow, localDate, nextHydration } from '../../shared/time';
 import type { Member, WaterLog } from '../../shared/types';
 import { reminderLabels } from '../../shared/types';
 import { HttpError, secret, hash, encrypt, rate, validEndpoint, unb64 } from './security';
 import { readSettings, type Env, type Actor } from './models';
 import { pushConfigured, sendPush, type Device } from './push';
 import { scheduled } from './scheduler';
-import { intakeToday } from './reminders';
+import { intakeToday, reminderMessage } from './reminders';
 import { flushPartnerNotifications } from './partner';
+import { encryptRecovery, issueRecovery, readRecovery, storeRecovery } from './recovery';
 
 const nameSchema = z.string().trim().min(1).max(24);
 const codeSchema = z
@@ -171,6 +172,7 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
           user.id,
           newHash,
         ),
+        storeRecovery(env, user.id, newHash, await encryptRecovery(env, user.id, recovery)),
       ]);
       if (!result[2].meta.changes)
         throw new HttpError(409, '이미 사용된 복구 코드예요. 새 코드를 사용해 주세요.');
@@ -189,6 +191,7 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
       token = secret(),
       recovery = secret(),
       invite = secret();
+    const recoveryHash = await hash(recovery);
     let group = crypto.randomUUID();
     if (path === '/api/join') {
       if (!input.invite_code) throw new HttpError(400, '초대 코드를 입력해 주세요.');
@@ -206,10 +209,11 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
         'INSERT INTO users VALUES(?,?,?,?,?)',
         id,
         input.display_name,
-        await hash(recovery),
+        recoveryHash,
         now,
         now,
       ),
+      storeRecovery(env, id, recoveryHash, await encryptRecovery(env, id, recovery)),
     ];
     if (path === '/api/groups')
       statements.push(
@@ -253,6 +257,20 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
   }
   const actor = await authenticate(req, env);
   await rate(env.DB, 'user:' + actor.id, 120, 60);
+  if (path === '/api/recovery-code' && (method === 'GET' || method === 'POST')) {
+    if (u.search) throw new HttpError(400, '지원하지 않는 조회 조건이에요.');
+    if (method === 'POST') {
+      await body(req, z.object({}).strict());
+      return json({
+        recovery_code: await issueRecovery(
+          env,
+          actor.id,
+          req.headers.get('Authorization')!.slice(7),
+        ),
+      });
+    }
+    return json({ recovery_code: await readRecovery(env, actor.id) });
+  }
   if (path === '/api/me' && method === 'PATCH') {
     const input = await body(req, z.object({ display_name: nameSchema }).strict());
     await stmt(
@@ -579,9 +597,16 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
       actor.id,
     ).all<Device>();
     if (!devices.results.length) throw new HttpError(409, '먼저 이 기기의 알림을 연결해 주세요.');
+    const settings = await readSettings(env.DB, actor.id);
+    const plan = hydrationNow(
+      Date.now(),
+      { ...settings, stop_when_goal_reached: false },
+      await intakeToday(env, actor.id, settings, Date.now()),
+    );
+    const message = reminderMessage(plan!);
     const results = [];
     for (const d of devices.results) {
-      const result = await sendPush(env, d);
+      const result = await sendPush(env, d, { ...message, title: `[테스트] ${message.title}` });
       results.push({ status: result });
       if (result === 'expired')
         await stmt(

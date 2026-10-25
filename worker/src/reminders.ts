@@ -1,4 +1,4 @@
-import { dayBounds, localDate } from '../../shared/time';
+import { dayBounds, localDate, type HydrationPlan } from '../../shared/time';
 import type { Settings } from '../../shared/types';
 import type { Env } from './models';
 
@@ -12,11 +12,12 @@ export async function intakeToday(env: Env, user: string, s: Settings, now: numb
   return r?.total || 0;
 }
 
-export function reminderMessage(plan: { amount_ml: number; remaining_ml: number }) {
+export function reminderMessage(plan: HydrationPlan) {
+  const fmt = (n: number) => n.toLocaleString('ko-KR');
   return plan.amount_ml > 0
     ? {
-        title: `이번에는 약 ${plan.amount_ml.toLocaleString('ko-KR')} ml 💧`,
-        body: `남은 목표 ${plan.remaining_ml.toLocaleString('ko-KR')} ml를 남은 알림 시간에 나눴어요. 천천히 나눠 마시고 기록해 주세요.`,
+        title: `지금 약 ${fmt(plan.amount_ml)} ml 마실 시간이에요 💧`,
+        body: `지금 약 ${fmt(plan.amount_ml)} ml · 오늘 ${fmt(plan.consumed_ml)} / ${fmt(plan.goal_ml)} ml 마셨어요. 남은 ${fmt(plan.remaining_ml)} ml를 ${plan.remaining_count}회(이번 포함)에 나눠 계산했어요.${plan.remaining_count === 1 ? ' 오늘의 마지막 알림이에요.' : ''}`,
       }
     : {
         title: '오늘의 수분 목표를 채웠어요 💧',

@@ -7,9 +7,11 @@ import {
   localDate,
   dailySlots,
   hydrationAt,
+  hydrationNow,
   nextHydration,
 } from '../../shared/time';
 import { defaults, defaultReminders } from '../../shared/types';
+import { reminderMessage } from '../src/reminders';
 const start = Date.parse('2025-05-05T02:00:00Z');
 test('Seoul midnight and historical range use UTC bounds', () => {
   assert.deepEqual(dayBounds('2025-05-02', 'Asia/Seoul'), {
@@ -25,8 +27,20 @@ test('fixed defaults deduplicate 11:00, preserve explicit alarms and divide the 
     slots.map((slot) => new Date(slot + 9 * 3600000).toISOString().slice(11, 16)),
     ['11:00', '11:20', '12:30', '13:00', '18:00', '20:00', '22:40'],
   );
-  assert.deepEqual(hydrationAt(start, defaults, 0), { amount_ml: 286, remaining_ml: 2000 });
-  assert.deepEqual(hydrationAt(slots[1], defaults, 800), { amount_ml: 200, remaining_ml: 1200 });
+  assert.deepEqual(hydrationAt(start, defaults, 0), {
+    amount_ml: 286,
+    remaining_ml: 2000,
+    consumed_ml: 0,
+    goal_ml: 2000,
+    remaining_count: 7,
+  });
+  assert.deepEqual(hydrationAt(slots[1], defaults, 800), {
+    amount_ml: 200,
+    remaining_ml: 1200,
+    consumed_ml: 800,
+    goal_ml: 2000,
+    remaining_count: 6,
+  });
   assert.equal(nextHydration(start + 1, defaults, 800)?.at, new Date(slots[1]).toISOString());
   let total = 0;
   for (const slot of slots) total += hydrationAt(slot, defaults, total)!.amount_ml;
@@ -35,8 +49,41 @@ test('fixed defaults deduplicate 11:00, preserve explicit alarms and divide the 
   assert.deepEqual(hydrationAt(slots[6], { ...defaults, stop_when_goal_reached: false }, 2000), {
     amount_ml: 0,
     remaining_ml: 0,
+    consumed_ml: 2000,
+    goal_ml: 2000,
+    remaining_count: 1,
   });
   assert.equal(nextHydration(start, defaults, 2000)?.at, new Date(start + 86400000).toISOString());
+});
+test('reminders recalculate from intake and remaining times, including delayed delivery', () => {
+  const now = Date.parse('2025-05-05T09:00:00Z'); // 18:00 Seoul: now, 20:00, 22:40
+  const plan = hydrationAt(now, defaults, 800)!;
+  assert.equal(plan.amount_ml, 400);
+  assert.equal(plan.remaining_count, 3);
+  const message = reminderMessage(plan);
+  assert.match(message.title, /지금 약 400 ml/);
+  assert.match(message.body, /지금 약 400 ml/);
+  assert.match(message.body, /800 \/ 2,000 ml/);
+  assert.match(message.body, /남은 1,200 ml.*3회/);
+  assert.equal(hydrationAt(now, defaults, 1400)!.amount_ml, 200);
+  const late = {
+    ...defaults,
+    reminders: defaultReminders.map((r, i) => ({
+      ...r,
+      enabled: i < 3,
+      time: ['18:00', '18:05', '20:00'][i] ?? r.time,
+    })),
+  };
+  assert.equal(hydrationAt(now, late, 800, now + 6 * 60000)!.amount_ml, 600);
+  assert.equal(hydrationAt(now, late, 800, now + 86400000), null);
+  const last = hydrationNow(Date.parse('2025-05-05T13:40:00Z'), defaults, 1850)!;
+  assert.equal(last.amount_ml, 150);
+  assert.match(reminderMessage(last).body, /마지막 알림/);
+  assert.equal(hydrationNow(now, defaults, 2100), null);
+  assert.equal(
+    hydrationNow(now, { ...defaults, stop_when_goal_reached: false }, 2100)!.amount_ml,
+    0,
+  );
 });
 test('close fixed times are all caught up with bounded delay and no interval fallback', () => {
   const s = {

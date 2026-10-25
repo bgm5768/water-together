@@ -1,4 +1,10 @@
-import { dueSlots, hydrationAt, localDate, windowOpen } from '../../shared/time';
+import {
+  dueSlots,
+  hydrationAt,
+  localDate,
+  windowOpen,
+  type HydrationPlan,
+} from '../../shared/time';
 import { readSettings, settingsFrom, type Env, type SettingsRow } from './models';
 import { sendPush, pushConfigured, type Device } from './push';
 import { intakeToday, reminderMessage } from './reminders';
@@ -9,7 +15,7 @@ async function deliver(
   id: string,
   attempt: number,
   now: number,
-  plan: { amount_ml: number; remaining_ml: number },
+  plan: HydrationPlan,
 ) {
   const result = await sendPush(env, device, reminderMessage(plan));
   const stamp = new Date(now).toISOString();
@@ -44,7 +50,7 @@ export async function scheduled(env: Env, now = Date.now()) {
   for (const row of users.results) {
     const s = settingsFrom(row);
     for (const slot of dueSlots(now, s)) {
-      const plan = hydrationAt(slot, s, await intakeToday(env, row.user_id, s, now));
+      const plan = hydrationAt(slot, s, await intakeToday(env, row.user_id, s, now), now);
       if (!plan) continue;
       const devices = await env.DB.prepare(
         'SELECT id,user_id,encrypted_subscription_data FROM push_subscriptions WHERE user_id=? AND revoked_at IS NULL',
@@ -77,7 +83,7 @@ export async function scheduled(env: Env, now = Date.now()) {
   for (const r of retries.results) {
     const s = await readSettings(env.DB, r.user_id);
     const slot = Date.parse(r.scheduled_at);
-    const plan = hydrationAt(slot, s, await intakeToday(env, r.user_id, s, now));
+    const plan = hydrationAt(slot, s, await intakeToday(env, r.user_id, s, now), now);
     if (
       !windowOpen(now, s) ||
       now - Date.parse(r.scheduled_at) > 15 * 60000 ||

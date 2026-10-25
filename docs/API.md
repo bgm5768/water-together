@@ -10,6 +10,8 @@
 | POST /api/groups | `{display_name}` | 201, 새 게스트·그룹·세션·초대·복구 코드를 원자적으로 생성 |
 | POST /api/join | `{display_name,invite_code}` | 201, 두 번째 멤버 생성. 정원 초과 409 |
 | POST /api/recover | `{recovery_code}` | 새 token/recovery_code, 기존 세션 취소 |
+| GET /api/recovery-code | 인증, 쿼리 없음 | 본인의 현재 `{recovery_code}`. 구버전 계정은 원문이 없으면 null, 코드 변경 없음 |
+| POST /api/recovery-code | 인증, `{}` | 원문 보관이 없는 계정만 새 코드 발급. 이미 보관 중이면 같은 코드 반환. 기존 세션·기록 유지 |
 | GET /api/me | 인증 | 본인, group_id, role, settings, 활성 기기 수, next_notification(섭취량을 반영한 다음 예약 후보), next_amount_ml(예상 ml, 없으면 null), 공개 VAPID 키 |
 | POST /api/invite | 인증 | owner만 초대 코드 재발급. 정원 충족 시 409 |
 | GET /api/day?date=YYYY-MM-DD | 인증 | 날짜 생략 시 내 시간대 오늘. 두 멤버·설정 목표·합계·개별 기록 |
@@ -22,6 +24,10 @@
 | DELETE /api/push/subscribe | `{endpoint}` 또는 `{all:true}` | 본인 기기만 비활성화 |
 | POST /api/push/test | 인증 | `{accepted,total,results:[{status}]}`. 결과는 공급자 수락 기준 |
 | Cloudflare scheduled handler | Cron 이벤트만 | 공개 HTTP 예약 실행 API는 없음 |
+
+복구 코드 보관에는 migration `0005_recovery_codes.sql`이 필요합니다. `SUBSCRIPTION_KEY`로부터 HKDF-SHA-256으로 분리한 키를 사용해 AES-GCM으로 암호화하며, 검증용 해시와 암호문을 원자적으로 갱신합니다. 기존 계정의 코드는 조회만으로 교체하지 않습니다. 새 코드 발급 시 이전 코드는 만료되며, 복구 시에는 모든 이전 세션도 만료됩니다. `/api/me` 등 일반 조회에는 복구 코드를 포함하지 않습니다. 암호화 키가 없으면 기존 가입·복구는 해시만 보관하는 방식으로 동작하지만 재조회용 코드 발급은 503입니다.
+
+정기 알림은 현재 시각까지 기록한 오늘 섭취량을 목표에서 빼고, 이번 안내와 앞으로 남은 활성 알림 시각 수로 나누어 올림한 권장 ml를 제목·본문에 표시합니다. 지난 시각과 중복 시각은 남은 횟수에 중복 포함하지 않습니다. 목표 2,000ml / 섭취 800ml / 남은 안내 3회이면 400ml입니다. 테스트 알림도 같은 계산 결과에 `[테스트]`를 붙여 보냅니다. 목표 달성 시의 알림 중지 설정과 기존 예약·재시도 중복 방지는 유지합니다.
 
 가입 성공은 `{token,recovery_code,invite_code?}`를 반환합니다. 이미 인증된 사용자가 그룹 생성/참여를 다시 호출하면 `{already_joined:true,group_id}`로 응답하고 별도 계정을 만들지 않습니다. 네트워크 응답을 잃고 토큰도 받지 못한 최초 가입의 자동 복구는 보장하지 않습니다.
 

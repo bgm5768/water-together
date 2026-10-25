@@ -3,25 +3,31 @@ import { Droplet } from 'lucide-react';
 import { dailySlots, nextHydration } from '../../shared/time';
 import type { Settings } from '../../shared/types';
 
-export function ReminderPlan({ settings, now }: { settings: Settings; now: number }) {
-  const next = nextHydration(now, settings, 0);
-  const slots = next ? dailySlots(Date.parse(next.at), settings) : [];
-  const portion = slots.length ? Math.ceil(settings.daily_goal_ml / slots.length) : 0;
+export function ReminderPlan({
+  settings,
+  now,
+  total,
+}: {
+  settings: Settings;
+  now: number;
+  total: number;
+}) {
+  const next = nextHydration(now, settings, total);
+  const slots = next
+    ? dailySlots(Date.parse(next.at), settings).filter((slot) => slot >= Date.parse(next.at))
+    : [];
   return (
     <div className="reminder-plan" aria-live="polite">
       <span className="plan-eyebrow">
         <Droplet size={15} /> 나의 물 마시기 계획
       </span>
-      {slots.length ? (
+      {next && slots.length ? (
         <>
-          <strong>
-            {settings.daily_goal_ml.toLocaleString('ko-KR')} ml <span>÷</span> {slots.length}회{' '}
-            <span>≈</span> {portion} ml씩
-          </strong>
+          <strong>다음 알림에 약 {next.amount_ml.toLocaleString('ko-KR')} ml</strong>
           <p>
-            {DateTime.fromMillis(slots[0], { zone: settings.timezone }).toFormat('M/d')} 일정 기준 ·
-            마신 양을 기록하면 남은 목표량을 남은 알림 횟수로 다시 나눠요. 선택한 시각마다
-            알려드려요.
+            {DateTime.fromMillis(slots[0], { zone: settings.timezone }).toFormat('M/d HH:mm')} 기준
+            · 남은 목표 {next.remaining_ml.toLocaleString('ko-KR')} ml ÷ 남은 알림{' '}
+            {next.remaining_count}회. 마신 양과 현재 시간에 맞춰 다시 계산해요.
           </p>
           <div className="plan-timeline" aria-label="알림 시간표">
             {slots.map((slot) => (

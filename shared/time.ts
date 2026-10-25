@@ -35,16 +35,38 @@ export function windowOpen(now: number, s: Settings) {
 export function nextSlot(now: number, s: Settings): string | null {
   return nextHydration(now, s, 0)?.at ?? null;
 }
-function portionAt(index: number, count: number, s: Settings, total: number) {
+export interface HydrationPlan {
+  amount_ml: number;
+  remaining_ml: number;
+  consumed_ml: number;
+  goal_ml: number;
+  remaining_count: number;
+}
+function portionAt(index: number, count: number, s: Settings, total: number): HydrationPlan | null {
   if (index < 0) return null;
   const remaining = Math.max(0, s.daily_goal_ml - total);
-  if (!remaining) return s.stop_when_goal_reached ? null : { amount_ml: 0, remaining_ml: 0 };
+  if (!remaining && s.stop_when_goal_reached) return null;
   // Explicit alarms always run at the selected times; only the goal-stop setting skips them.
-  return { amount_ml: Math.ceil(remaining / (count - index)), remaining_ml: remaining };
+  return {
+    amount_ml: Math.ceil(remaining / (count - index)),
+    remaining_ml: remaining,
+    consumed_ml: total,
+    goal_ml: s.daily_goal_ml,
+    remaining_count: count - index,
+  };
 }
-export function hydrationAt(slot: number, s: Settings, total: number) {
+export function hydrationNow(now: number, s: Settings, total: number) {
+  return portionAt(0, 1 + dailySlots(now, s).filter((slot) => slot > now).length, s, total);
+}
+export function hydrationAt(slot: number, s: Settings, total: number, now = slot) {
   const slots = dailySlots(slot, s);
-  return portionAt(slots.indexOf(slot), slots.length, s, total);
+  if (
+    !slots.includes(slot) ||
+    now < slot ||
+    localDate(slot, s.timezone) !== localDate(now, s.timezone)
+  )
+    return null;
+  return hydrationNow(now, s, total);
 }
 export function nextHydration(now: number, s: Settings, total: number) {
   const today = DateTime.fromMillis(now, { zone: s.timezone });

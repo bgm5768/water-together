@@ -9,7 +9,6 @@ import {
   Check,
   Settings2,
   Users,
-  Copy,
   ShieldCheck,
   Trash2,
   Pencil,
@@ -28,6 +27,8 @@ import { useWaterSound } from './WaterSound';
 import { SettingsTabs, SettingsPanel, type SettingsTab } from './SettingsTabs';
 import { LaunchScreen } from './LaunchScreen';
 import { MonthHistory } from './MonthHistory';
+import { CodeBox } from './CodeBox';
+import { RecoveryCode } from './RecoveryCode';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -340,7 +341,6 @@ export function App() {
                     setSaved(false);
                   })
                 }
-                onQuickAdd={(amount) => run(() => add(amount))}
                 onAdd={addFromCup}
                 onEdit={openEdit}
                 onDelete={setDeleting}
@@ -530,7 +530,7 @@ export function App() {
                               </datalist>
                             </label>
 
-                            <ReminderPlan settings={draft} now={clock} />
+                            <ReminderPlan settings={draft} now={clock} total={own?.total_ml ?? 0} />
                           </div>
                         </SettingsPanel>
                         <SettingsPanel id="alerts" active={settingsTab}>
@@ -829,6 +829,7 @@ export function App() {
                             이어서 사용할 수 있어요.
                           </p>
                         </section>
+                        {settingsTab === 'app' && <RecoveryCode key={me.id} online={online} />}
                         <section className="recovery-note">
                           <ShieldCheck size={23} />
                           <div>
@@ -927,8 +928,8 @@ export function App() {
           {codes.recovery_code && (
             <>
               <p>
-                복구 코드는 다시 표시되지 않아요. 비밀번호 관리자 등 안전한 곳에 저장해 주세요.
-                복구에 사용하면 기존 세션과 이전 코드는 만료돼요.
+                복구 코드는 내 설정 → 앱·계정에서 다시 복사할 수 있어요. 안전한 곳에도 저장해
+                주세요. 복구에 사용하면 기존 세션과 이전 코드는 만료돼요.
               </p>
               <CodeBox
                 label="나만의 복구 코드 · 상대에게 보내지 마세요"
@@ -1178,35 +1179,6 @@ function Onboarding({
         </button>
       </section>
     </main>
-  );
-}
-function CodeBox({
-  label,
-  value,
-  onError,
-}: {
-  label: string;
-  value: string;
-  onError: (e: string) => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="code-box">
-      <label>
-        {label}
-        <textarea readOnly value={value} rows={2} />
-      </label>
-      <button
-        onClick={() => {
-          navigator.clipboard
-            .writeText(value)
-            .then(() => setCopied(true))
-            .catch(() => onError('자동 복사에 실패했어요. 코드를 선택해서 직접 복사해 주세요.'));
-        }}
-      >
-        {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? '복사됨' : '복사'}
-      </button>
-    </div>
   );
 }
 function Modal({
