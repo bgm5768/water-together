@@ -1,4 +1,4 @@
-/* App layout: a quiet full-screen canvas, with the primary action at thumb level. */
+/* The tracking panel fills the first viewport; daily records follow below it. */
 :root {
   background: #dce5f5;
   color: #17223b;
@@ -9,8 +9,10 @@ body {
   background: linear-gradient(135deg, #dce5f5, #edf2fa);
 }
 .signed-in {
+  --app-top-offset: 0px;
+  --bottom-nav-height: calc(79px + env(safe-area-inset-bottom));
   max-width: 480px;
-  padding: 0 0 calc(86px + env(safe-area-inset-bottom));
+  padding: 0 0 var(--bottom-nav-height);
   background: #edf2ff;
   min-height: 100svh;
 }
@@ -142,6 +144,7 @@ body {
   pointer-events: auto;
 }
 .signed-in .bottom-nav {
+  height: var(--bottom-nav-height);
   width: min(100%, 480px);
   left: 50%;
   right: auto;
@@ -193,10 +196,15 @@ body {
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-height: calc(100svh - 79px - env(safe-area-inset-bottom));
-  padding: 24px 22px 16px;
+  /* Match the visible viewport, including browser chrome and the fixed navigation. */
+  min-height: calc(100svh - var(--bottom-nav-height) - var(--app-top-offset));
+  min-height: calc(100dvh - var(--bottom-nav-height) - var(--app-top-offset));
+  padding: max(20px, env(safe-area-inset-top)) 22px 20px;
   background: linear-gradient(180deg, #e4ebff 0%, #ecf2ff 80%);
   overflow: hidden;
+}
+.water-stage > :not(.water-space) {
+  flex-shrink: 0;
 }
 .day-toolbar {
   display: flex;
@@ -209,8 +217,8 @@ body {
   align-items: center;
   gap: 10px;
   max-width: 65%;
-  min-height: 48px;
-  padding: 10px 17px;
+  min-height: 40px;
+  padding: 8px 15px;
   border-radius: 30px;
   background: white;
   color: #4288ed;
@@ -244,8 +252,8 @@ body {
 }
 .intake-hero {
   text-align: center;
-  margin: 30px 0 26px;
-  padding: 14px 8px;
+  margin: 18px 0 14px;
+  padding: 13px 8px;
   border-radius: 24px;
   background: #ffffffed;
 }
@@ -269,27 +277,27 @@ body {
   justify-content: center;
   gap: 9px;
   line-height: 1;
-  margin: 18px 0 16px;
+  margin: 9px 0 8px;
   color: #142039;
   font-variant-numeric: tabular-nums;
 }
 .hero-number strong {
-  font-size: clamp(80px, 23vw, 116px);
-  letter-spacing: -7px;
+  font-size: clamp(52px, 16vw, 68px);
+  letter-spacing: -3px;
   font-weight: 750;
   line-height: 1;
 }
 .hero-number.long-number strong {
-  font-size: clamp(59px, 17vw, 85px);
-  letter-spacing: -4px;
+  font-size: clamp(40px, 12vw, 54px);
+  letter-spacing: -2px;
 }
 .hero-number > span {
-  font-size: 27px;
+  font-size: 19px;
   font-weight: 650;
   letter-spacing: -1px;
 }
 .intake-hero > p {
-  font-size: 12px;
+  font-size: 11px;
   color: #71809c;
 }
 .today-metrics {
@@ -303,7 +311,7 @@ body {
   align-items: flex-start;
   justify-content: center;
   gap: 5px;
-  padding: 17px 17px 15px;
+  padding: 12px 14px;
   border: 0;
   border-radius: 21px;
   background: #ffffffed;
@@ -369,8 +377,8 @@ body {
   gap: 11px;
   border: 1px solid #fff9;
   border-radius: 19px;
-  padding: 13px 15px;
-  margin-top: 15px;
+  padding: 10px 13px;
+  margin-top: 12px;
   background: #ffffffed;
 }
 .together-avatar {
@@ -446,8 +454,7 @@ body {
   border-radius: 50%;
 }
 .water-space {
-  flex: 1;
-  min-height: 35px;
+  flex: 1 0 24px;
   position: relative;
 }
 .floating-drop {
@@ -469,28 +476,31 @@ body {
 }
 .drink-controls {
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-areas: 'drink progress' 'drink amount';
+  grid-template-rows: 1fr auto;
+  gap: 12px 18px;
   align-items: center;
-  flex-direction: column;
-}
-.cup-selector {
-  position: relative;
-  flex-direction: column;
-  gap: 10px;
-  width: 122px;
-  min-height: 150px;
-  height: auto;
-  padding: 17px 12px 12px;
-  border: 1px solid #ffffff;
-  border-radius: 25px;
-  background: linear-gradient(160deg, #ffffff, #f4f9ff);
-  box-shadow:
-    0 12px 34px #176de324,
-    inset 0 1px 0 #fff;
-  overflow: visible;
+  align-self: center;
+  width: min(100%, 340px);
 }
 .cup-drink-button {
-  color: inherit;
+  grid-area: drink;
+  position: relative;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-height: 164px;
+  padding: 18px 10px;
+  border: 1px solid #fff;
+  border-radius: 54px;
+  background: linear-gradient(160deg, #fff, #edf7ff);
+  box-shadow:
+    0 12px 30px #0758ba30,
+    inset 0 1px 0 #fff;
+  overflow: visible;
+  color: #226fca;
   cursor: pointer;
   isolation: isolate;
   -webkit-tap-highlight-color: transparent;
@@ -523,74 +533,41 @@ body {
   pointer-events: none;
 }
 .cup-droplet {
-  position: absolute;
-  top: 8px;
-  left: 8px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #dfeeff;
-  color: #3396f4;
-}
-.drinking-glass {
-  position: relative;
-  display: block;
-  width: 32px;
+  width: 48px;
   height: 48px;
-  flex: 0 0 48px;
-  background: #e6eff7;
-  clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
-  border-radius: 4px;
-}
-.glass-water {
-  position: absolute;
-  bottom: 4px;
-  left: 5px;
-  right: 5px;
-  height: 32px;
-  background: linear-gradient(#37c1f0, #14a9df);
-  border-radius: 25% 20% 2px 2px / 7% 6% 2px 2px;
-}
-.glass-shine {
-  position: absolute;
-  top: 5px;
-  bottom: 8px;
-  left: 7px;
-  width: 3px;
-  background: #ffffff5c;
-  transform: rotate(-4deg);
-  border-radius: 3px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e3f3ff, #cde7ff);
+  color: #2888ef;
+  box-shadow: inset 0 1px 0 white;
 }
 .cup-volume {
   display: flex;
   align-items: center;
   gap: 2px;
-  color: #20334d;
-  font-size: 20px;
-  font-weight: 750;
+  color: #6185af;
+  font-size: 14px;
+  font-weight: 650;
 }
 .cup-volume small {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 .cup-action-label {
-  padding: 5px 11px;
-  border-radius: 20px;
-  background: #e7f3ff;
-  color: #247bda;
-  font-size: 11px;
+  color: #226fca;
+  font-size: 14px;
   font-weight: 750;
-  line-height: 1;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 .cup-amount-change {
-  min-height: 34px;
-  padding: 7px 12px;
-  border: 0;
+  grid-area: amount;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid #ffffffad;
   color: #245d9c;
   background: #fffffff2;
-  margin-top: 8px;
   gap: 5px;
   font-size: 11px;
   font-weight: 650;
@@ -598,21 +575,19 @@ body {
 .cup-amount-change:hover:not(:disabled) {
   background: #eaf4ff;
 }
-.cup-volume > svg {
-  margin-left: 3px;
-  color: #6b87ad;
-}
 .water-progress {
+  grid-area: progress;
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 13px 0 15px;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+  align-self: stretch;
   color: #245d9c;
-  padding: 12px;
-  border-radius: 16px;
+  padding: 14px;
+  border-radius: 20px;
   background: #fffffff2;
-  gap: 12px;
+  gap: 10px;
   font-size: 11px;
 }
 .water-progress-label {
@@ -628,7 +603,7 @@ body {
 }
 .water-progress > span:last-child {
   font-weight: 600;
-  text-align: right;
+  text-align: left;
 }
 .direct-entry {
   padding: 8px 12px 0;
@@ -652,11 +627,6 @@ body {
   height: 235px;
   pointer-events: none;
 }
-.cup-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -667,9 +637,6 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-.drink-controls {
-  padding-bottom: 22px;
 }
 .drink-sheet {
   position: fixed;
@@ -943,24 +910,24 @@ body {
 }
 .water-landscape > svg {
   width: 100%;
-  height: 64px;
+  height: 100px;
   display: block;
 }
 .water-landscape::after {
   content: '';
   position: absolute;
-  inset: 63px 0 0;
+  inset: 99px 0 0;
   background: #2b83ee;
 }
 .wave-flow {
-  animation: water-flow 14s linear infinite;
+  animation: water-flow 8s linear infinite;
 }
 .wave-middle {
-  animation-duration: 10s;
+  animation-duration: 6s;
   animation-direction: reverse;
 }
 .wave-front {
-  animation-duration: 18s;
+  animation-duration: 10s;
 }
 @keyframes water-flow {
   to {
@@ -1006,37 +973,8 @@ body {
     transform: translateY(-38px) scale(1.05);
   }
 }
-.glass-water {
-  transition: height 0.45s ease;
-}
-.glass-water::before {
-  content: '';
-  position: absolute;
-  left: -30%;
-  top: -3px;
-  width: 160%;
-  height: 7px;
-  background: #96e6fb;
-  border-radius: 50%;
-  animation: glass-sway 3s ease-in-out infinite alternate;
-}
-@keyframes glass-sway {
-  from {
-    transform: rotate(-8deg) translateX(-2px);
-  }
-  to {
-    transform: rotate(8deg) translateX(2px);
-  }
-}
-.just-drank .drinking-glass {
-  animation: cup-cheer 0.65s ease-in-out;
-}
 .cup-drink-button.is-drinking {
   animation: cup-drink 0.85s cubic-bezier(0.2, 0.75, 0.25, 1);
-}
-.cup-drink-button.is-drinking .glass-water {
-  transform-origin: bottom;
-  animation: glass-drink 0.85s ease-in-out;
 }
 .cup-drink-button.is-drinking .cup-droplet svg {
   animation: drop-pop 0.85s ease-out;
@@ -1044,29 +982,12 @@ body {
 .cup-drink-button.is-drinking .cup-ripple {
   animation: cup-ripple 0.85s ease-out;
 }
-@keyframes cup-cheer {
-  40% {
-    transform: translateY(-6px) rotate(-10deg);
-  }
-  70% {
-    transform: rotate(6deg);
-  }
-}
 @keyframes cup-drink {
   35% {
     transform: translateY(-8px) rotate(-4deg) scale(0.96);
   }
   62% {
     transform: translateY(1px) rotate(2deg) scale(1.04);
-  }
-}
-@keyframes glass-drink {
-  0%,
-  100% {
-    transform: scaleY(1);
-  }
-  42% {
-    transform: scaleY(0.18);
   }
 }
 @keyframes drop-pop {
@@ -1130,7 +1051,7 @@ body {
     transform: translate(18px, -135px);
   }
 }
-.cup-selector,
+.cup-drink-button,
 .metric-tile,
 .round-action {
   transition:
@@ -1138,7 +1059,7 @@ body {
     box-shadow 0.2s ease,
     background 0.2s ease;
 }
-.cup-selector:active:not(:disabled),
+.cup-drink-button:active:not(:disabled),
 .metric-tile:active {
   transform: scale(0.96);
 }
@@ -1258,14 +1179,11 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .wave-flow,
-  .glass-water::before,
   .water-bubble,
   .floating-drop,
   .intake-splash,
   .cup-drink-button.is-drinking,
-  .cup-drink-button.is-drinking .glass-water,
   .cup-drink-button.is-drinking .cup-droplet svg,
-  .just-drank .drinking-glass,
   .cup-drink-button.is-drinking .cup-ripple {
     animation: none !important;
   }
@@ -1466,8 +1384,8 @@ body {
     box-shadow: 0 18px 90px #28466f18;
     overflow: hidden;
   }
-  .water-stage {
-    min-height: calc(100svh - 103px);
+  .signed-in {
+    --app-top-offset: 24px;
   }
 }
 @media (max-width: 360px) {
@@ -1498,39 +1416,129 @@ body {
   .metric-sub {
     font-size: 9px;
   }
-  .hero-number strong {
-    font-size: 84px;
-  }
   .today-metrics {
     gap: 10px;
   }
 }
-@media (max-height: 920px) {
-  .intake-hero {
-    margin: 20px 0 18px;
+@media (max-height: 740px) {
+  .water-stage {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: 14px;
   }
-  .water-space {
-    min-height: 18px;
+  .person-pill {
+    min-height: 36px;
+    padding-block: 6px;
   }
-}
-@media (max-height: 760px) {
   .intake-hero {
-    margin: 22px 0 20px;
+    margin: 12px 0;
+    padding-block: 10px;
   }
   .hero-number strong {
-    font-size: 88px;
+    font-size: 52px;
+  }
+  .hero-number.long-number strong {
+    font-size: 42px;
   }
   .hero-number {
-    margin: 14px 0;
+    margin: 6px 0;
+  }
+  .metric-tile {
+    padding: 10px 12px;
+    gap: 3px;
+  }
+  .together-strip {
+    margin-top: 10px;
+    padding: 7px 11px;
   }
   .water-space {
-    min-height: 26px;
+    flex-basis: 16px;
   }
+  .drink-controls {
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 10px 16px;
+  }
+  .cup-drink-button {
+    min-height: 144px;
+    padding-block: 14px;
+    gap: 6px;
+  }
+}
+@media (max-height: 620px) {
   .water-stage {
-    padding-top: 18px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: 12px;
   }
-  .cup-selector {
-    width: 110px;
+  .intake-hero {
+    margin: 8px 0;
+    padding-block: 8px;
+  }
+  .intake-hero h1 {
+    font-size: 10px;
+  }
+  .hero-number strong {
+    font-size: 44px;
+  }
+  .hero-number.long-number strong {
+    font-size: 36px;
+  }
+  .intake-hero > p {
+    font-size: 10px;
+  }
+  .metric-tile {
+    padding-block: 8px;
+  }
+  .metric-value {
+    font-size: 18px;
+    line-height: 1.35;
+  }
+  .reminder-value {
+    font-size: 15px;
+  }
+  .metric-sub {
+    font-size: 9px;
+  }
+  .together-strip {
+    margin-top: 8px;
+    padding-block: 5px;
+  }
+  .water-space {
+    flex-basis: 10px;
+  }
+  .cup-drink-button {
+    min-height: 130px;
+    padding-block: 12px;
+  }
+  .cup-droplet {
+    width: 40px;
+    height: 40px;
+  }
+}
+@media (max-height: 540px) {
+  .intake-hero > p,
+  .metric-sub {
+    display: none;
+  }
+  .hero-number strong {
+    font-size: 36px;
+  }
+  .hero-number.long-number strong {
+    font-size: 32px;
+  }
+  .drink-controls {
+    gap: 8px 16px;
+  }
+  .cup-drink-button {
+    min-height: 118px;
+    padding-block: 10px;
+    gap: 4px;
+  }
+  .cup-droplet {
+    width: 36px;
+    height: 36px;
+  }
+  .water-progress {
+    padding: 10px 12px;
+    gap: 6px;
   }
 }
 

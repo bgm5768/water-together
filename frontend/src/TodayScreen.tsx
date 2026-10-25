@@ -105,10 +105,7 @@ export function TodayScreen(p: Props) {
 
   return (
     <div className="water-today">
-      <section
-        className={`water-stage${splash ? ' just-drank' : ''}`}
-        aria-label="오늘의 수분 섭취"
-      >
+      <section className="water-stage" aria-label="오늘의 수분 섭취">
         <header className="day-toolbar">
           <span className="person-pill">
             <Droplet size={20} fill="currentColor" />
@@ -238,27 +235,20 @@ export function TodayScreen(p: Props) {
         <div className="drink-controls">
           <button
             type="button"
-            className={`cup-selector cup-preview cup-drink-button${drinking ? ' is-drinking' : ''}`}
+            className={`cup-drink-button${drinking ? ' is-drinking' : ''}`}
             disabled={p.busy || !p.online || !p.own}
-            aria-label={`${cup}ml 마신 것으로 기록`}
+            aria-label={`물 마시기 · ${cup}ml 마신 것으로 기록`}
             onClick={quickDrink}
           >
             <span className="cup-ripple" aria-hidden="true" />
-            <span className="cup-droplet">
-              <Droplet size={15} fill="currentColor" />
+            <span className="cup-droplet" aria-hidden="true">
+              <Droplet size={30} fill="currentColor" strokeWidth={1.5} />
             </span>
-            <span className="drinking-glass" aria-hidden="true">
-              <span
-                className="glass-water"
-                style={{ height: `${Math.min(38, 15 + cup / 22)}px` }}
-              />
-              <span className="glass-shine" />
-            </span>
+            <span className="cup-action-label">{p.busy ? '기록 중…' : '물 마시기'}</span>
             <span className="cup-volume">
               {cup}
               <small> ml</small>
             </span>
-            <span className="cup-action-label">{p.busy ? '기록 중…' : '물 마시기'}</span>
           </button>
           <button
             type="button"
@@ -291,18 +281,18 @@ export function TodayScreen(p: Props) {
           </div>
         </div>
         <div className="water-landscape" style={{ height: `${waterLevel}%` }} aria-hidden="true">
-          <svg viewBox="0 0 600 240" preserveAspectRatio="none">
+          <svg viewBox="0 0 600 100" preserveAspectRatio="none">
             <path
               className="wave-back wave-flow"
-              d="M0 18 Q150 0 300 18 T600 18 T900 18 T1200 18 V240 H0Z"
+              d="M0 28 C100 -6 200 -6 300 28 S500 62 600 28 S800 -6 900 28 S1100 62 1200 28 V100 H0Z"
             />
             <path
               className="wave-middle wave-flow"
-              d="M0 28 Q150 48 300 28 T600 28 T900 28 T1200 28 V240 H0Z"
+              d="M0 42 C100 76 200 76 300 42 S500 8 600 42 S800 76 900 42 S1100 8 1200 42 V100 H0Z"
             />
             <path
               className="wave-front wave-flow"
-              d="M0 36 Q150 22 300 36 T600 36 T900 36 T1200 36 V240 H0Z"
+              d="M0 58 C100 28 200 28 300 58 S500 88 600 58 S800 28 900 58 S1100 88 1200 58 V100 H0Z"
             />
           </svg>
           <span className="water-bubble bubble-one" />
