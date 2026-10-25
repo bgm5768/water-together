@@ -300,6 +300,10 @@ body {
   font-size: 11px;
   color: #71809c;
 }
+.self-care-count strong {
+  color: #2878d5;
+  font-weight: 700;
+}
 .today-metrics {
   display: grid;
   grid-template-columns: 0.95fr 1.15fr;
@@ -672,18 +676,63 @@ body {
 .water-progress {
   grid-area: progress;
   width: 100%;
-  display: flex;
-  align-items: flex-start;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
   align-self: center;
   min-height: 100px;
   color: #245d9c;
-  padding: 14px;
+  padding: 12px;
   border-radius: 20px;
   background: #fffffff2;
-  gap: 10px;
+  gap: 8px;
   font-size: 11px;
+}
+.water-progress.is-complete {
+  background: linear-gradient(140deg, #fff, #eaf6ff);
+  box-shadow: 0 0 22px #d1efff70;
+}
+.milestone-drop {
+  display: block;
+  width: 100%;
+  height: auto;
+  flex-shrink: 0;
+}
+.milestone-water {
+  transition: y 650ms ease;
+}
+.daily-drop {
+  position: relative;
+  width: 42px;
+}
+.is-complete .daily-drop {
+  filter: drop-shadow(0 0 6px #71c8ff80);
+}
+.milestone-glow {
+  position: absolute;
+  inset: 4px -5px;
+  border-radius: 50%;
+  background: #acdfff80;
+  pointer-events: none;
+  animation: milestone-bloom 1.4s ease-out both;
+}
+@keyframes milestone-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+.water-progress-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 .water-progress-label {
   font-size: 23px;
@@ -692,13 +741,40 @@ body {
   letter-spacing: -1px;
 }
 .water-progress-label small {
-  font-size: 14px;
+  font-size: 11px;
   margin-left: 2px;
   letter-spacing: 0;
 }
-.water-progress > span:last-child {
+.water-progress-message {
   font-weight: 600;
-  text-align: left;
+  font-size: 10px;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.drop-milestones {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.drop-milestones > span {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  color: #7386a0;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.drop-milestones i {
+  height: 3px;
+  border-radius: 3px;
+  background: #dce9f8;
+}
+.drop-milestones .is-filled {
+  color: #246fc8;
+}
+.drop-milestones .is-filled i {
+  background: #4599f5;
 }
 .direct-entry {
   padding: 8px 12px 0;
@@ -1276,6 +1352,9 @@ body {
   line-height: 1.8;
 }
 @media (prefers-reduced-motion: reduce) {
+  .milestone-glow {
+    display: none;
+  }
   .drink-reward {
     display: none;
   }
@@ -1490,6 +1569,17 @@ body {
   }
 }
 @media (max-width: 360px) {
+  .water-progress {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 7px;
+    padding: 10px;
+  }
+  .daily-drop {
+    width: 32px;
+  }
+  .water-progress-label {
+    font-size: 21px;
+  }
   .water-stage {
     padding-left: 16px;
     padding-right: 16px;
@@ -1615,9 +1705,19 @@ body {
   }
 }
 @media (max-height: 540px) {
-  .intake-hero > p,
+  .intake-hero {
+    margin-block: 7px;
+    padding-block: 5px;
+  }
   .metric-sub {
     display: none;
+  }
+  .intake-hero > .self-care-count {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .hero-number {
+    margin-block: 5px;
   }
   .hero-number strong {
     font-size: 36px;

@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { ArrowRight, Droplet, Pencil, Trash2, Users } from 'lucide-react';
 import type { Me, Member, WaterLog } from '../../shared/types';
 import { DrinkSheet } from './DrinkSheet';
+import { goalProgress, MilestoneDrop } from './MilestoneDrop';
 
 interface Props {
   me: Me;
@@ -28,7 +29,12 @@ const MAX_WATER_LEVEL = 90;
 export function TodayScreen(p: Props) {
   const cup = p.me.settings.default_drink_ml ?? 200;
   const [choosing, setChoosing] = useState(false);
-  const [reward, setReward] = useState<string | null>(null);
+  const [reward, setReward] = useState<{
+    key: string;
+    before: number;
+    goal: number;
+    day: string;
+  } | null>(null);
   const total = p.own?.total_ml;
   const previous = useRef({ total, day: p.today });
   const [splash, setSplash] = useState<{ amount: number; key: number } | null>(null);
@@ -73,13 +79,22 @@ export function TodayScreen(p: Props) {
       clearTimeout(timer);
     };
   }, [total, p.today, choosing]);
-  const percent = p.own ? Math.round((p.own.total_ml / p.own.daily_goal_ml) * 100) : null;
-  const consumedPercent = p.own
-    ? Math.min(100, Math.max(0, (p.own.total_ml / p.own.daily_goal_ml) * 100))
-    : 0;
-  const remainingPercent = p.own
-    ? Math.ceil((Math.max(0, p.own.daily_goal_ml - p.own.total_ml) * 100) / p.own.daily_goal_ml)
-    : null;
+  const progress = p.own ? goalProgress(p.own.total_ml, p.own.daily_goal_ml) : null;
+  const percent = progress?.percent ?? null;
+  const milestoneReached =
+    reward &&
+    progress &&
+    p.own &&
+    reward.day === p.today &&
+    reward.goal === p.own.daily_goal_ml &&
+    progress.stage > goalProgress(reward.before, reward.goal).stage;
+  const progressMessage = [
+    '한 모금씩 채워가요',
+    '첫 물방울을 채웠어요',
+    '벌써 절반을 채웠어요',
+    '물방울이 거의 완성됐어요',
+    '오늘의 물 챙기기 완료!',
+  ][progress?.stage ?? 0];
   const waterLevel =
     MIN_WATER_LEVEL +
     (MAX_WATER_LEVEL - MIN_WATER_LEVEL) *
@@ -131,14 +146,20 @@ export function TodayScreen(p: Props) {
               +{fmt(splash.amount)} ml <Droplet size={16} fill="currentColor" />
             </span>
           )}
-          <p>
-            {percent === null
-              ? p.loading
-                ? '기록을 불러오는 중이에요'
-                : '새로고침으로 기록을 확인해 주세요'
-              : consumedPercent >= 100
-                ? '오늘의 목표를 채웠어요. 잘했어요!'
-                : '가볍게 한 잔, 나를 위한 작은 습관'}
+          <p className="self-care-count">
+            {percent === null ? (
+              p.loading ? (
+                '기록을 불러오는 중이에요'
+              ) : (
+                '새로고침으로 기록을 확인해 주세요'
+              )
+            ) : p.logs.length > 0 ? (
+              <>
+                오늘 나를 챙긴 순간 <strong>{fmt(p.logs.length)}번</strong>
+              </>
+            ) : (
+              '나를 챙기는 첫 한 잔부터'
+            )}
           </p>
         </div>
 
@@ -244,25 +265,41 @@ export function TodayScreen(p: Props) {
             <span className="cup-volume">용량 선택</span>
           </button>
           <div
-            className="water-progress"
+            className={`water-progress ${progress?.complete ? 'is-complete' : ''}`}
             role="progressbar"
-            aria-label="오늘 마실 물의 남은 비율"
+            aria-label="오늘 목표를 채운 비율"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={remainingPercent ?? 0}
-            aria-valuetext={remainingPercent === null ? '기록 미확인' : `${remainingPercent}% 남음`}
+            aria-valuenow={percent ?? 0}
+            aria-valuetext={
+              percent === null
+                ? '기록 미확인'
+                : `오늘 목표의 ${percent}%를 채웠어요. ${progressMessage}`
+            }
           >
-            <span className="water-progress-label">
-              {remainingPercent ?? '—'}
-              <small>% 남음</small>
-            </span>
-            <span>
-              {percent === null
-                ? '기록 확인 중'
-                : consumedPercent >= 100
-                  ? '목표 달성!'
-                  : `목표까지 ${fmt(Math.max(0, p.me.settings.daily_goal_ml - (p.own?.total_ml || 0)))} ml`}
-            </span>
+            <div className="daily-drop">
+              {milestoneReached && (
+                <span key={reward.key} className="milestone-glow" aria-hidden="true" />
+              )}
+              <MilestoneDrop stage={progress?.stage ?? 0} />
+            </div>
+            <div className="water-progress-copy">
+              <span className="water-progress-label">
+                {percent ?? '—'}
+                <small>% 채웠어요</small>
+              </span>
+              <span className="water-progress-message">
+                {progress ? progressMessage : '기록 확인 중'}
+              </span>
+            </div>
+            <div className="drop-milestones" aria-hidden="true">
+              {[25, 50, 75, 100].map((step, index) => (
+                <span key={step} className={progress && progress.stage > index ? 'is-filled' : ''}>
+                  <i />
+                  {step}%
+                </span>
+              ))}
+            </div>
           </div>
         </div>
         <div className="water-scene" style={{ height: `${waterLevel}%` }} aria-hidden="true">
@@ -286,7 +323,7 @@ export function TodayScreen(p: Props) {
             <span className="water-bubble bubble-three" />
           </div>
           {reward && (
-            <div key={reward} className="drink-reward">
+            <div key={reward.key} className="drink-reward">
               <Droplet className="reward-drop" size={30} fill="currentColor" strokeWidth={1.5} />
               <span className="reward-ripple" />
               <span className="reward-ripple reward-ripple-delayed" />
@@ -359,7 +396,13 @@ export function TodayScreen(p: Props) {
           onClose={() => setChoosing(false)}
           onSave={async (amount, when, key) => {
             await p.onAdd(amount, when, key);
-            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setReward(key);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+              setReward({
+                key,
+                before: total ?? 0,
+                goal: p.own?.daily_goal_ml ?? p.me.settings.daily_goal_ml,
+                day: p.today,
+              });
           }}
         />
       )}

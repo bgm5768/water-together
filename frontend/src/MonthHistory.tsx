@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { ArrowLeft, ArrowRight, Droplet, Pencil, Trash2 } from 'lucide-react';
 import type { DayData, Me, MonthData, WaterLog } from '../../shared/types';
+import { goalProgress, MilestoneDrop } from './MilestoneDrop';
 import './history.css';
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 export function MonthHistory({
@@ -39,6 +40,11 @@ export function MonthHistory({
       totals: {} as Record<string, number>,
     }));
   const logs = day ? [...day.logs].sort((a, b) => b.consumed_at.localeCompare(a.consumed_at)) : [];
+  const ownGoal =
+    members.find((member) => member.id === me.id)?.daily_goal_ml ?? me.settings.daily_goal_ml;
+  const completedDrops = days.filter(
+    (d) => d.date <= today && goalProgress(d.totals[me.id] ?? 0, ownGoal).complete,
+  ).length;
   const shift = (delta: number) => {
     const next = start.plus({ months: delta });
     onSelect(next.toFormat('yyyy-MM') === today.slice(0, 7) ? today : next.toISODate()!);
@@ -111,6 +117,14 @@ export function MonthHistory({
         )}
       </div>
       <section className="month-calendar" aria-label="두 사람의 월간 섭취량 달력">
+        <div className="calendar-collection">
+          <MilestoneDrop stage={4} />
+          <span>이번 달 완성한 내 물방울</span>
+          <strong>
+            {month ? completedDrops : '—'}
+            <small>개</small>
+          </strong>
+        </div>
         <div className="calendar-legend">
           <span className="person-mine">
             <i />나
@@ -134,6 +148,7 @@ export function MonthHistory({
             const future = d.date > today;
             const mine = d.totals[me.id] ?? 0;
             const theirs = partner ? (d.totals[partner.id] ?? 0) : null;
+            const completed = !!month && !future && goalProgress(mine, ownGoal).complete;
             return (
               <button
                 type="button"
@@ -141,13 +156,14 @@ export function MonthHistory({
                 className={`calendar-day ${d.date === selected ? 'selected' : ''} ${d.date === today ? 'is-today' : ''}`}
                 disabled={future}
                 aria-pressed={d.date === selected}
-                aria-label={`${Number(d.date.slice(-2))}일${month && !future ? `, 나 ${mine}ml${theirs === null ? '' : `, 상대 ${theirs}ml`}` : ''}`}
+                aria-label={`${Number(d.date.slice(-2))}일${month && !future ? `, 나 ${mine}ml${theirs === null ? '' : `, 상대 ${theirs}ml`}${completed ? ', 내 물방울 완성' : ''}` : ''}`}
                 onClick={() => onSelect(d.date)}
               >
-                <span className="calendar-number">{Number(d.date.slice(-2))}</span>
-                <span
-                  className={`calendar-amount person-mine ${mine >= me.settings.daily_goal_ml ? 'goal-met' : ''}`}
-                >
+                <span className="calendar-date">
+                  <span className="calendar-number">{Number(d.date.slice(-2))}</span>
+                  {completed && <MilestoneDrop stage={4} className="calendar-completion" />}
+                </span>
+                <span className={`calendar-amount person-mine ${completed ? 'goal-met' : ''}`}>
                   {!month ? '·' : future ? '—' : fmt(mine)}
                 </span>
                 <span
@@ -160,8 +176,9 @@ export function MonthHistory({
           })}
         </div>
         <p className="calendar-note">
-          {me.settings.timezone} 기준 · 평균은 1ml 이상 기록한 날만 계산 · 목표 달성은 현재 목표
-          기준
+          {me.settings.timezone} 기준 · 평균은 1ml 이상 기록한 날만 계산
+          <br />
+          완성 물방울과 목표 달성은 현재 목표 기준
         </p>
       </section>
       <section className="history-timeline">

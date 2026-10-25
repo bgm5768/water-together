@@ -105,6 +105,44 @@
   border-radius: 24px;
   padding: 17px 10px 12px;
 }
+.calendar-collection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  margin: 0 0 14px;
+  border-radius: 14px;
+  background: #f0f7ff;
+  color: #3d668e;
+  font-size: 11px;
+}
+.calendar-collection > .milestone-drop {
+  width: 24px;
+}
+.calendar-collection strong {
+  margin-left: auto;
+  color: #287ff0;
+  font-size: 20px;
+  white-space: nowrap;
+}
+.calendar-collection strong small {
+  font-size: 11px;
+  margin-left: 3px;
+}
+.calendar-date {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+.calendar-date > .calendar-number {
+  width: 20px;
+  flex-shrink: 0;
+}
+.calendar-date > .calendar-completion {
+  width: 12px;
+}
 .calendar-legend {
   display: flex;
   align-items: center;
