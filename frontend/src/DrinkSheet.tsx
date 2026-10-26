@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronsUpDown, Droplet, Pencil, Plus, X } from 'lucide-react';
+import { MugSlider } from './MugSlider';
 
 interface Props {
   initialAmount: number;
@@ -18,7 +19,6 @@ export function DrinkSheet({ initialAmount, online, onClose, onSave }: Props) {
   const amount = Number(value);
   const valid = value !== '' && Number.isInteger(amount) && amount >= 1 && amount <= 3000;
   const [capacity, setCapacity] = useState(Math.max(500, Math.ceil(initialAmount / 500) * 500));
-  const level = Math.max(0, Math.min(100, (amount / capacity) * 100));
   useEffect(() => {
     const el = dialog.current!;
     const overflow = document.body.style.overflow;
@@ -32,27 +32,6 @@ export function DrinkSheet({ initialAmount, online, onClose, onSave }: Props) {
   function change(n: number) {
     setValue(String(Math.max(1, Math.min(capacity, Math.round(n)))));
     setError('');
-  }
-  function drag(event: PointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    change(((rect.bottom - event.clientY) / rect.height) * capacity);
-  }
-  function keyboard(event: KeyboardEvent<HTMLDivElement>) {
-    const step = event.shiftKey ? 10 : 1;
-    const next = {
-      ArrowUp: amount + step,
-      ArrowRight: amount + step,
-      ArrowDown: amount - step,
-      ArrowLeft: amount - step,
-      PageUp: amount + 50,
-      PageDown: amount - 50,
-      Home: 1,
-      End: capacity,
-    }[event.key];
-    if (next !== undefined && !saving) {
-      event.preventDefault();
-      change(next);
-    }
   }
   async function save() {
     if (locked.current || !valid || !online) return;
@@ -113,56 +92,15 @@ export function DrinkSheet({ initialAmount, online, onClose, onSave }: Props) {
           </span>
         </p>
         <div className="measure-area">
-          <div className="measure-mug">
-            <div className="mug-handle" aria-hidden="true" />
-            <div
-              className="mug-slider"
-              role="slider"
-              tabIndex={saving ? -1 : 0}
-              aria-label="마신 물의 양"
-              aria-orientation="vertical"
-              aria-valuemin={1}
-              aria-valuemax={capacity}
-              aria-valuenow={valid ? amount : 1}
-              aria-valuetext={`${valid ? amount : 0} ml`}
-              aria-describedby="drag-help"
-              aria-disabled={saving}
-              onKeyDown={keyboard}
-              onPointerDown={(event) => {
-                if (saving || !event.isPrimary || event.button !== 0) return;
-                event.currentTarget.focus();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                drag(event);
-              }}
-              onPointerMove={(event) => {
-                if (!saving && event.currentTarget.hasPointerCapture(event.pointerId)) drag(event);
-              }}
-              onPointerUp={(event) => {
-                if (event.currentTarget.hasPointerCapture(event.pointerId))
-                  event.currentTarget.releasePointerCapture(event.pointerId);
-              }}
-            >
-              <div className="mug-liquid" style={{ height: `${level}%` }} aria-hidden="true">
-                <svg className="mug-surface" viewBox="0 0 600 48" preserveAspectRatio="none">
-                  <path d="M0 24 Q150 0 300 24 T600 24 T900 24 T1200 24 V48 H0Z" />
-                </svg>
-              </div>
-              <div className="mug-ticks" aria-hidden="true">
-                {[0.25, 0.5, 0.75].map((f) => (
-                  <i key={f} style={{ bottom: `${f * 100}%` }}>
-                    <span>{Math.round(capacity * f)}</span>
-                  </i>
-                ))}
-              </div>
-              <span
-                className="mug-drag-grip"
-                style={{ bottom: `clamp(25px, ${level}%, calc(100% - 25px))` }}
-                aria-hidden="true"
-              >
-                <ChevronsUpDown size={28} />
-              </span>
-            </div>
-          </div>
+          <MugSlider
+            label="마신 물의 양"
+            describedBy="drag-help"
+            value={valid ? amount : 1}
+            min={1}
+            max={capacity}
+            disabled={saving}
+            onChange={change}
+          />
           <span className="water-type">
             <Droplet size={17} fill="currentColor" /> 물
           </span>

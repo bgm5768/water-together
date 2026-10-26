@@ -30,6 +30,7 @@ import { MonthHistory } from './MonthHistory';
 import { CodeBox } from './CodeBox';
 import { RecoveryCode } from './RecoveryCode';
 import { settingsEqual } from './settings';
+import { GoalAmount } from './GoalAmount';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -536,51 +537,35 @@ export function App() {
                             <h2>
                               <Droplet size={20} /> 하루의 목표
                             </h2>
-                            <p className="field-hint">
-                              하루 목표와 물 마시기를 열 때의 기본 용량을 정해요.
+                            <p id="goal-drag-help" className="field-hint">
+                              물 마시기처럼 컵의 물을 위아래로 드래그해 양을 정해요.
                             </p>
-                            <label>
-                              하루 목표량{' '}
-                              <div className="input-unit">
-                                <input
-                                  type="number"
-                                  min="100"
-                                  max="10000"
-                                  step="1"
-                                  required
-                                  value={draft.daily_goal_ml}
-                                  onChange={(e) =>
-                                    setDraft({ ...draft, daily_goal_ml: Number(e.target.value) })
-                                  }
-                                />
-                                <span>ml</span>
-                              </div>
-                            </label>
-                            <label>
-                              기본 한 잔 용량
-                              <div className="input-unit">
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min="1"
-                                  max="3000"
-                                  step="1"
-                                  required
-                                  value={draft.default_drink_ml ?? 200}
-                                  onChange={(event) =>
-                                    setDraft({
-                                      ...draft,
-                                      default_drink_ml: Number(event.target.value),
-                                    })
-                                  }
-                                />
-                                <span>ml</span>
-                              </div>
-                              <small className="field-hint">
-                                물 마시기를 열 때 이 양부터 시작해요. 매번 드래그로 조절할 수
-                                있어요.
-                              </small>
-                            </label>
+                            <div className="goal-amounts">
+                              <GoalAmount
+                                id="daily-goal"
+                                label="하루 목표량"
+                                hint="하루 동안 채우고 싶은 양이에요."
+                                value={draft.daily_goal_ml}
+                                min={100}
+                                max={10000}
+                                step={100}
+                                disabled={busy}
+                                onChange={(daily_goal_ml) => setDraft({ ...draft, daily_goal_ml })}
+                              />
+                              <GoalAmount
+                                id="default-drink"
+                                label="기본 한 잔 용량"
+                                hint="물 마시기를 열면 이 양부터 시작해요."
+                                value={draft.default_drink_ml ?? 200}
+                                min={1}
+                                max={3000}
+                                step={10}
+                                disabled={busy}
+                                onChange={(default_drink_ml) =>
+                                  setDraft({ ...draft, default_drink_ml })
+                                }
+                              />
+                            </div>
                           </div>
                         </SettingsPanel>
                         <SettingsPanel id="schedule" active={settingsTab}>

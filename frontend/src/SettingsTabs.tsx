@@ -78,7 +78,11 @@ export function SettingsTabs({
       <div
         className="settings-panels"
         onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest('input,button,select,textarea,a,label')) {
+          if (
+            (event.target as HTMLElement).closest(
+              'input,button,select,textarea,a,label,[role="slider"]',
+            )
+          ) {
             start.current = null;
             return;
           }
