@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import type { DayData, MonthData, Me, Settings, WaterLog } from '../../shared/types';
+import { MAX_DAILY_GOAL_ML, MAX_DRINK_ML } from '../../shared/types';
 import { localDate } from '../../shared/time';
 import { api, ApiError, session, vapidBytes } from './api';
 import { copy } from './copy';
@@ -31,6 +32,7 @@ import { CodeBox } from './CodeBox';
 import { RecoveryCode } from './RecoveryCode';
 import { settingsEqual } from './settings';
 import { GoalAmount } from './GoalAmount';
+import { AmountSheet } from './AmountSheet';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -41,6 +43,9 @@ const remindersPaused = (id: string) => localStorage.getItem(reminderPauseKey(id
 export function App() {
   const waterSound = useWaterSound();
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('goal');
+  const [editingAmount, setEditingAmount] = useState<'daily_goal_ml' | 'default_drink_ml' | null>(
+    null,
+  );
   const [notificationHelp, setNotificationHelp] = useState(false);
   const [reminderIntro, setReminderIntro] = useState(false);
   const [monthData, setMonthData] = useState<MonthData | null>(null);
@@ -537,33 +542,23 @@ export function App() {
                             <h2>
                               <Droplet size={20} /> 하루의 목표
                             </h2>
-                            <p id="goal-drag-help" className="field-hint">
-                              물 마시기처럼 컵의 물을 위아래로 드래그해 양을 정해요.
-                            </p>
+                            <p className="field-hint">하루 목표와 기본 한 잔의 양을 눌러 바꿔요.</p>
                             <div className="goal-amounts">
                               <GoalAmount
                                 id="daily-goal"
                                 label="하루 목표량"
-                                hint="하루 동안 채우고 싶은 양이에요."
+                                hint="하루 동안 채우고 싶은 양 · 최대 5,000 ml"
                                 value={draft.daily_goal_ml}
-                                min={100}
-                                max={10000}
-                                step={100}
                                 disabled={busy}
-                                onChange={(daily_goal_ml) => setDraft({ ...draft, daily_goal_ml })}
+                                onClick={() => setEditingAmount('daily_goal_ml')}
                               />
                               <GoalAmount
                                 id="default-drink"
                                 label="기본 한 잔 용량"
-                                hint="물 마시기를 열면 이 양부터 시작해요."
+                                hint="물 마시기를 열 때의 기본 용량 · 최대 500 ml"
                                 value={draft.default_drink_ml ?? 200}
-                                min={1}
-                                max={3000}
-                                step={10}
                                 disabled={busy}
-                                onChange={(default_drink_ml) =>
-                                  setDraft({ ...draft, default_drink_ml })
-                                }
+                                onClick={() => setEditingAmount('default_drink_ml')}
                               />
                             </div>
                           </div>
@@ -1110,6 +1105,22 @@ export function App() {
           </button>
         </Modal>
       )}
+      {editingAmount && draft && (
+        <AmountSheet
+          key={editingAmount}
+          initialAmount={draft[editingAmount] ?? 200}
+          min={editingAmount === 'daily_goal_ml' ? 100 : 1}
+          max={editingAmount === 'daily_goal_ml' ? MAX_DAILY_GOAL_ML : MAX_DRINK_ML}
+          title={editingAmount === 'daily_goal_ml' ? '하루 목표량을 정해요' : '한 잔의 양을 정해요'}
+          label={editingAmount === 'daily_goal_ml' ? '하루 목표량' : '기본 한 잔 용량'}
+          caption="나에게 맞는 물 마시기"
+          footer="적용한 뒤 설정 화면에서 변경사항을 저장해 주세요."
+          onClose={() => setEditingAmount(null)}
+          onSave={(value) =>
+            setDraft((current) => current && { ...current, [editingAmount]: value })
+          }
+        />
+      )}
       {editing && (
         <Modal
           error={error}
@@ -1141,7 +1152,7 @@ export function App() {
                 required
                 type="number"
                 min="1"
-                max="3000"
+                max={MAX_DRINK_ML}
                 step="1"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -1156,7 +1167,7 @@ export function App() {
                 onChange={(e) => setConsumed(e.target.value)}
               />
             </label>
-            <p className="field-hint">1~3,000ml까지 기록할 수 있어요.</p>
+            <p className="field-hint">한 번에 1~500ml까지 기록할 수 있어요.</p>
             <button className="primary" disabled={busy || !online}>
               저장
             </button>

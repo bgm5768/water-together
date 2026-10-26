@@ -1896,137 +1896,39 @@ body {
   line-height: 1.75;
 }
 .goal-amounts {
-  display: grid;
-  gap: 24px;
-  margin-top: 24px;
+  margin-top: 20px;
 }
-.goal-amount + .goal-amount {
-  border-top: 1px solid #e5ecf7;
-  padding-top: 24px;
-}
-.goal-amount h3 {
-  margin: 0;
-  color: #294d78;
-  font-size: 15px;
-}
-.goal-amount-hint {
-  margin: 7px 0 18px;
-  color: #70829b;
-  font-size: 12px;
-  line-height: 1.6;
-}
-.goal-amount-control {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(20px, 5vw, 44px);
-}
-.goal-amount .measure-mug {
-  width: 140px;
-  flex-shrink: 0;
-  margin-right: 20px;
-}
-.goal-amount .mug-slider {
-  height: 180px;
-  border-radius: 22px 22px 40px 40px;
-  scroll-margin-block: 180px;
-}
-.goal-amount .mug-handle {
-  right: -30px;
-  width: 48px;
-  border-width: 15px;
-  border-radius: 30px;
-}
-.goal-amount .mug-ticks i {
-  left: 10px;
-  width: 9px;
-}
-.goal-amount .mug-ticks span {
-  left: 13px;
-}
-.goal-amount-summary {
-  min-width: 0;
-  text-align: center;
-}
-.goal-amount-value {
+.goal-amount > label {
   display: block;
-  white-space: nowrap;
-  color: #277cde;
+  margin: 0 0 8px;
+  color: #294d78;
+  font-size: 14px;
+}
+.goal-amount-button {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #dce5f0;
+  border-radius: 12px;
+  background: white;
+  color: #294d78;
   font-variant-numeric: tabular-nums;
 }
-.goal-amount-value strong {
-  font-size: clamp(26px, 5vw, 36px);
-  letter-spacing: -1px;
+.goal-amount-button > strong {
+  flex: 1;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 500;
 }
-.goal-amount-value > span {
-  color: #7088a6;
-  font-size: 13px;
+.goal-amount-button > span,
+.goal-amount-button > svg {
+  color: #7890a8;
+  font-size: 12px;
 }
-.goal-amount-adjust {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 16px 0 12px;
-}
-.goal-amount-adjust > button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  min-height: 44px;
-  padding: 0;
-  margin: 0;
-  border: 1px solid #d9e7f8;
-  border-radius: 14px;
-  color: #287bdc;
-  background: #edf5ff;
-  flex-shrink: 0;
-}
-.goal-amount-adjust > span,
-.goal-amount-range {
-  color: #70829b;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.goal-amount .mug-slider[aria-disabled='true'] {
-  cursor: default;
-  opacity: 0.6;
-}
-@media (max-width: 480px) {
-  .goal-amount-control {
-    gap: 16px;
-  }
-  .goal-amount .measure-mug {
-    width: 112px;
-    margin-right: 14px;
-  }
-  .goal-amount .mug-handle {
-    right: -22px;
-    width: 36px;
-    border-width: 12px;
-  }
-  .goal-amount .mug-slider {
-    height: 164px;
-  }
-  .goal-amount-adjust {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .goal-amount-adjust > span {
-    order: 1;
-    flex-basis: 100%;
-  }
-}
-@media (max-width: 360px) {
-  .goal-amount-control {
-    gap: 10px;
-  }
-  .goal-amount .measure-mug {
-    width: 98px;
-  }
-  .goal-amount-value strong {
-    font-size: 23px;
-  }
+.goal-amount > .field-hint {
+  margin: 7px 0 20px;
 }
 .settings-save {
   position: sticky;

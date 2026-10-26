@@ -140,8 +140,8 @@ test('month calendar aggregates both members, includes zero days and isolates ot
   await log(a.token, 250, '2025-04-30T15:00:00.000Z');
   await log(a.token, 350, '2025-05-01T05:00:00.000Z');
   await log(b.token, 500, '2025-05-01T10:00:00.000Z');
-  await log(a.token, 900, '2025-05-31T15:00:00.000Z'); // June in Seoul
-  await log(outsider.token, 3000, '2025-05-01T01:00:00.000Z');
+  await log(a.token, 400, '2025-05-31T15:00:00.000Z'); // June in Seoul
+  await log(outsider.token, 500, '2025-05-01T01:00:00.000Z');
   const result = await request('/api/month?month=2025-05', 'GET', undefined, a.token);
   assert.equal(result.status, 200);
   assert.equal(result.data.days.length, 31);
@@ -243,7 +243,11 @@ test('default cup persists per user, survives old clients, and rejects invalid a
     (await request('/api/me', 'GET', undefined, b.token)).data.settings.default_drink_ml,
     200,
   );
-  for (const amount of [0, 3001, 1.5])
+  assert.equal(
+    (await request('/api/settings', 'PUT', { ...settings, default_drink_ml: 500 }, a.token)).status,
+    200,
+  );
+  for (const amount of [0, 501, 3001, 1.5])
     assert.equal(
       (await request('/api/settings', 'PUT', { ...settings, default_drink_ml: amount }, a.token))
         .status,
@@ -525,6 +529,7 @@ test('settings validation and independent user settings', async () => {
     { timezone: 'nonsense' },
     { active_days: [1, 1] },
     { daily_goal_ml: 0 },
+    { daily_goal_ml: 5001 },
     { start_time: '99:00' },
     { end_time: '09:00' },
   ])
@@ -533,6 +538,66 @@ test('settings validation and independent user settings', async () => {
       400,
     );
 });
+test('new amount limits reject overflow and preserve historical intake while normalizing old settings', async () => {
+  const a = await create();
+  const me = (await request('/api/me', 'GET', undefined, a.token)).data;
+  assert.equal(
+    (
+      await request(
+        '/api/settings',
+        'PUT',
+        { ...defaults, daily_goal_ml: 5000, default_drink_ml: 500 },
+        a.token,
+      )
+    ).status,
+    200,
+  );
+  const entry = await log(a.token, 500);
+  assert.equal(entry.status, 201);
+  assert.equal((await log(a.token, 501)).status, 400);
+  assert.equal(
+    (
+      await request(
+        '/api/logs/' + entry.data.id,
+        'PATCH',
+        { amount_ml: 501, consumed_at: stamp },
+        a.token,
+      )
+    ).status,
+    400,
+  );
+  await db
+    .prepare(
+      'UPDATE notification_settings SET daily_goal_ml=9000,default_drink_ml=900 WHERE user_id=?',
+    )
+    .bind(me.id)
+    .run();
+  await db.prepare('UPDATE water_logs SET amount_ml=1500 WHERE id=?').bind(entry.data.id).run();
+  const settings = (await request('/api/settings', 'GET', undefined, a.token)).data;
+  assert.equal(settings.daily_goal_ml, 5000);
+  assert.equal(settings.default_drink_ml, 500);
+  assert.equal(
+    (await request('/api/me', 'GET', undefined, a.token)).data.settings.daily_goal_ml,
+    5000,
+  );
+  const day = (await request('/api/day?date=2025-05-02', 'GET', undefined, a.token)).data;
+  assert.equal(day.members[0].daily_goal_ml, 5000);
+  assert.equal(day.members[0].total_ml, 1500);
+  assert.equal(day.logs[0].amount_ml, 1500);
+  const month = (await request('/api/month?month=2025-05', 'GET', undefined, a.token)).data;
+  assert.equal(month.members[0].daily_goal_ml, 5000);
+  assert.equal(month.days[1].totals[me.id], 1500);
+  const { default_drink_ml: omitted, ...oldClient } = settings;
+  assert.equal((await request('/api/settings', 'PUT', oldClient, a.token)).status, 200);
+  assert.equal(
+    (await db
+      .prepare('SELECT default_drink_ml FROM notification_settings WHERE user_id=?')
+      .bind(me.id)
+      .first())!.default_drink_ml,
+    500,
+  );
+});
+
 test('CORS, entry and user request limits, content validation', async () => {
   await mf.dispatchFetch('http://localhost/__test/clock?now=' + Date.now());
   try {
@@ -744,7 +809,7 @@ test('regular cron sends even ahead of pace, catches close edited times once and
     enabled: i < 2,
   }));
   await request('/api/settings', 'PUT', { ...defaults, reminders }, a.token);
-  await log(a.token, 1500, new Date(scheduledAt - 60000).toISOString());
+  for (let i = 0; i < 3; i++) await log(a.token, 500, new Date(scheduledAt - 60000).toISOString());
   let calls = 0;
   fetchMock
     .get('https://fcm.googleapis.com')
@@ -777,7 +842,7 @@ test('reaching the goal cancels a retry and suppresses the next scheduled push',
     .intercept({ path: '/fcm/send/ahead', method: 'POST' })
     .reply(503);
   await cron(scheduledAt);
-  await log(a.token, 2000, new Date(scheduledAt + 60000).toISOString());
+  for (let i = 0; i < 4; i++) await log(a.token, 500, new Date(scheduledAt + 60000).toISOString());
   await cron(scheduledAt + 5 * 60000);
   await cron(scheduledAt + 60 * 60000);
   const rows = await db.prepare('SELECT status FROM notification_delivery_logs').all();
@@ -815,7 +880,7 @@ test('disabled, achieved goal, inactive weekday and no subscription suppress cro
   await request('/api/settings', 'PUT', { ...defaults, active_days: [7] }, a.token);
   await cron(scheduledAt);
   await request('/api/settings', 'PUT', defaults, a.token);
-  await log(a.token, 2000, '2025-05-04T16:00:00Z');
+  for (let i = 0; i < 4; i++) await log(a.token, 500, '2025-05-04T16:00:00Z');
   await cron(scheduledAt);
   assert.equal(
     (await db.prepare('SELECT count(*) n FROM notification_delivery_logs').first<{ n: number }>())
@@ -974,7 +1039,7 @@ test('partner preference is independent of reminders, survives legacy clients an
     { ...defaults, enabled: false, partner_notifications: true },
     b.token,
   );
-  await log(b.token, 2000, new Date().toISOString());
+  for (let i = 0; i < 4; i++) await log(b.token, 500, new Date().toISOString());
   fetchMock
     .get('https://fcm.googleapis.com')
     .intercept({ path: '/fcm/send/preference', method: 'POST' })

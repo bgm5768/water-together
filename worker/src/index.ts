@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DateTime, IANAZone } from 'luxon';
 import { dayBounds, hydrationNow, localDate, nextHydration } from '../../shared/time';
 import type { Member, WaterLog } from '../../shared/types';
-import { reminderLabels } from '../../shared/types';
+import { MAX_DAILY_GOAL_ML, MAX_DRINK_ML, reminderLabels } from '../../shared/types';
 import { HttpError, secret, hash, encrypt, rate, validEndpoint, unb64 } from './security';
 import { readSettings, type Env, type Actor } from './models';
 import { pushConfigured, sendPush, type Device } from './push';
@@ -38,8 +38,8 @@ const settingsSchema = z
       .string()
       .max(64)
       .refine((x) => IANAZone.isValidZone(x)),
-    daily_goal_ml: z.number().int().min(100).max(10000),
-    default_drink_ml: z.number().int().min(1).max(3000).optional(),
+    daily_goal_ml: z.number().int().min(100).max(MAX_DAILY_GOAL_ML),
+    default_drink_ml: z.number().int().min(1).max(MAX_DRINK_ML).optional(),
     partner_notifications: z.boolean().optional(),
     reminders: z
       .array(
@@ -66,7 +66,7 @@ const settingsSchema = z
   });
 const logSchema = z
   .object({
-    amount_ml: z.number().int().min(1).max(3000),
+    amount_ml: z.number().int().min(1).max(MAX_DRINK_ML),
     consumed_at: z
       .string()
       .datetime({ offset: true })
@@ -305,7 +305,10 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
         'SELECT u.id,u.display_name,n.daily_goal_ml FROM group_members m JOIN users u ON u.id=m.user_id JOIN notification_settings n ON n.user_id=u.id WHERE m.group_id=? ORDER BY m.joined_at,m.user_id',
         actor.group_id,
       ).all<Omit<Member, 'total_ml'>>()
-    ).results;
+    ).results.map((member) => ({
+      ...member,
+      daily_goal_ml: Math.min(member.daily_goal_ml, MAX_DAILY_GOAL_ML),
+    }));
     // At most 94 bindings. Per-day UTC bounds preserve DST and viewer timezone.
     // Aggregate in D1 instead of transferring a whole month's individual records.
     const totals = (
@@ -408,6 +411,7 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
       logs: logs.results,
       members: members.results.map((m) => ({
         ...m,
+        daily_goal_ml: Math.min(m.daily_goal_ml, MAX_DAILY_GOAL_ML),
         total_ml: logs.results
           .filter((l) => l.user_id === m.id)
           .reduce((sum, l) => sum + l.amount_ml, 0),
@@ -487,7 +491,7 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
     await env.DB.batch([
       stmt(
         env.DB,
-        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=COALESCE(?,default_drink_ml),reminders=COALESCE(?,reminders),partner_notifications=COALESCE(?,partner_notifications),updated_at=? WHERE user_id=?',
+        'UPDATE notification_settings SET enabled=?,start_time=?,end_time=?,interval_minutes=?,active_days=?,stop_when_goal_reached=?,timezone=?,daily_goal_ml=?,default_drink_ml=MIN(COALESCE(?,default_drink_ml),?),reminders=COALESCE(?,reminders),partner_notifications=COALESCE(?,partner_notifications),updated_at=? WHERE user_id=?',
         +s.enabled,
         s.start_time,
         s.end_time,
@@ -497,6 +501,7 @@ async function route(req: Request, env: Env, ctx: Pick<ExecutionContext, 'waitUn
         s.timezone,
         s.daily_goal_ml,
         s.default_drink_ml ?? null,
+        MAX_DRINK_ML,
         s.reminders ? JSON.stringify(s.reminders) : null,
         s.partner_notifications === undefined ? null : +s.partner_notifications,
         now,

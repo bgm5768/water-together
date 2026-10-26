@@ -1,3 +1,6 @@
+export const MAX_DAILY_GOAL_ML = 5000;
+export const MAX_DRINK_ML = 500;
+
 export const reminderLabels = {
   wake: '기상 이후',
   before_breakfast: '조식 전',

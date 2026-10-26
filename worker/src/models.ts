@@ -1,5 +1,5 @@
 import type { Settings } from '../../shared/types';
-import { defaultReminders } from '../../shared/types';
+import { defaultReminders, MAX_DAILY_GOAL_ML, MAX_DRINK_ML } from '../../shared/types';
 export interface Env {
   DB: D1Database;
   ALLOWED_ORIGIN: string;
@@ -34,8 +34,8 @@ export function settingsFrom(r: SettingsRow): Settings {
     active_days: JSON.parse(r.active_days),
     stop_when_goal_reached: !!r.stop_when_goal_reached,
     timezone: r.timezone,
-    daily_goal_ml: r.daily_goal_ml,
-    default_drink_ml: r.default_drink_ml ?? 200,
+    daily_goal_ml: Math.min(r.daily_goal_ml, MAX_DAILY_GOAL_ML),
+    default_drink_ml: Math.min(r.default_drink_ml ?? 200, MAX_DRINK_ML),
     reminders: r.reminders ? JSON.parse(r.reminders) : defaultReminders,
     partner_notifications: r.partner_notifications !== 0,
   };

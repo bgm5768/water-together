@@ -1,3 +1,11 @@
+## 2026-10-26 설정 버튼에서 용량 선택창 열기 및 상한 변경
+
+- 목표 설정의 두 컵을 제거하고 기존 숫자 필드 모양의 버튼을 복원했다. 버튼을 누르면 물 마시기와 공통인 `AmountSheet`가 열려 컵 드래그·숫자 입력·방향키를 사용할 수 있다. 취소는 초안을 바꾸지 않고, 적용은 초안에만 반영하며 기존 저장 버튼을 유지한다.
+- 하루 목표 100–5,000ml, 기본 한 잔 및 한 번의 섭취 기록/수정 1–500ml를 UI와 API에서 제한한다. 과거 초과 설정은 조회/계산에서 정규화하고 이후 설정 저장 때 반영한다. 기존 섭취 기록과 누적 합계는 그대로 보존하며 DB 마이그레이션은 없다.
+- 운영 경로 환경의 `npm run check`: 39개 테스트·타입 검사·프론트/PWA 빌드·Worker dry-run 통과. 경계값 500/501, 5,000/5,001, 구버전 설정 조회/저장, 과거 1,500ml 기록/합계 보존을 API 테스트로 확인했다.
+- Computer Use로 Chrome에서 로컬 모의 API와 연결해 버튼 열기, 큰 컵 표시, 드래그(200→350ml), 취소 후 원래 값 유지, 직접 입력 초과 차단, End/ArrowUp 최대값 유지, 337ml 적용, 설정 적용 전 저장/물 기록 API 호출 0건을 확인했다. 저장 실패 시 초안/저장 버튼 유지, 재시도 성공 후 저장 버튼 숨김, 물 마시기 초기값 337ml 및 500ml 기록도 확인했다.
+- 390×844 화면과 320×568 화면에 가로 넘침이 없고, 작은 화면의 선택창은 세로로 스크롤된다. Chrome 실행 오류 0건. 결과 화면: `C:/Users/USER/water-ui-qa/amount-sheet-review/settings.jpg`, `cup-dialog.jpg`. 실계정·푸시를 사용하지 않은 로컬 UI 검증이다.
+
 ## 2026-10-26 알림 오른쪽 사이트 이니셜 숨김
 
 - 사용자가 테스트 알림 오른쪽에 `(B)`가 표시된다고 보고했다. 기존 `icon` 생략 처리는 큰 아이콘을 숨기지 못했다. [Chromium NotificationBuilderBase](https://chromium.googlesource.com/chromium/src/+/98bcd85e696b5a2b236e706204da0e9936d6e1b1/chrome/browser/notifications/android/java/src/org/chromium/chrome/browser/notifications/NotificationBuilderBase.java)의 `ensureNormalizedIcon`은 이미지가 없으면 출처 기반 아이콘을 생성한다. 운영 주소의 `B`가 표시된 원인으로 판단했다.

@@ -46,11 +46,12 @@
 ```
 
 - active_days는 ISO 요일: 월=1, 일=7. 중복과 범위 오류 거부.
-- 목표는 정수 100~10,000ml. start_time/end_time/interval_minutes는 구버전 호환 필드이며 고정 시각 예약에 사용하지 않습니다.
+- 목표는 정수 100~5,000ml. start_time/end_time/interval_minutes는 구버전 호환 필드이며 고정 시각 예약에 사용하지 않습니다.
 - reminders: 8개 {id,time,enabled} 배열. id는 wake/before_breakfast/after_breakfast/before_lunch/after_lunch/before_dinner/after_dinner/bedtime을 중복 없이 포함하며 time은 HH:mm입니다. 생략하면 저장값을 유지합니다. 같은 시각은 한 번 발송합니다.
 - GET /api/me의 last_scheduled_notification: 본인의 최근 {scheduled_at,sent_at,status} 또는 null. accepted는 공급자 수락이며 단말 수신 확인이 아닙니다.
-- 기본 한 잔 용량(default_drink_ml)은 정수 1~3,000ml. 기존 사용자 기본값은 200ml이며, 구버전 클라이언트가 필드를 생략하면 저장된 값을 유지합니다.
-- 섭취량은 정수 1~3,000ml, 소비 시각은 2020-01-01 이후·서버 현재 시각+1분 이내.
+- 기본 한 잔 용량(default_drink_ml)은 정수 1~500ml. 기존 사용자 기본값은 200ml이며, 구버전 클라이언트가 필드를 생략하면 새 상한 안에서 저장된 값을 유지합니다.
+- 새 섭취 기록 및 수정의 섭취량은 정수 1~500ml, 소비 시각은 2020-01-01 이후·서버 현재 시각+1분 이내. 과거에 저장된 500ml 초과 기록의 조회·합계는 보존합니다.
+- 이전의 상한 초과 목표/기본 용량은 설정·프로필·일/월 조회 및 알림 계산에서 각각 5,000/500ml로 정규화합니다. 다음 설정 저장 때 저장값에도 적용합니다. 일일 누적 섭취량을 잘라내는 제한은 아닙니다.
 - 닉네임은 trim 후 1~24자. UI는 텍스트로 렌더링.
 - user_id/group_id를 입력으로 받지 않음. 날짜 조회의 알 수 없는 쿼리 파라미터도 거부.
 - 내 기록이 아니거나 다른 그룹의 ID면 수정·삭제에 404를 반환해 존재 여부를 숨김.
