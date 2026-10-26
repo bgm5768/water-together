@@ -18,6 +18,7 @@ export async function api<T>(
   method = 'GET',
   body?: unknown,
   idempotency?: string,
+  options?: { keepalive?: boolean },
 ): Promise<T> {
   const token = session.get();
   let response: Response;
@@ -31,6 +32,7 @@ export async function api<T>(
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
+      keepalive: options?.keepalive,
       signal: AbortSignal.timeout(20000),
     });
   } catch {

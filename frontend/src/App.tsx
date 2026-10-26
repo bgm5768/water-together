@@ -30,7 +30,7 @@ import { LaunchScreen } from './LaunchScreen';
 import { MonthHistory } from './MonthHistory';
 import { CodeBox } from './CodeBox';
 import { RecoveryCode } from './RecoveryCode';
-import { settingsEqual } from './settings';
+import { SettingsAutosave, type SettingsSaveStatus } from './settings-autosave';
 import { GoalAmount } from './GoalAmount';
 import { AmountSheet } from './AmountSheet';
 
@@ -68,8 +68,10 @@ export function App() {
     [amount, setAmount] = useState('200'),
     [consumed, setConsumed] = useState('');
   const [deleting, setDeleting] = useState<WaterLog | null>(null),
-    [draft, setDraft] = useState<Settings | null>(null),
+    [draft, setDraftState] = useState<Settings | null>(null),
     [device, setDevice] = useState(false);
+  const [settingsSaveStatus, setSettingsSaveStatus] = useState<SettingsSaveStatus>('idle');
+  const [settingsSaveError, setSettingsSaveError] = useState('');
   const [permission, setPermission] = useState(
       supportsPush() ? Notification.permission : 'unsupported',
     ),
@@ -81,9 +83,30 @@ export function App() {
   const automaticSetup = useRef('');
   const reminderOffered = useRef('');
   const deviceSetup = useRef<Promise<void> | null>(null);
+  const refreshCurrent = useRef<() => Promise<void>>(async () => {});
+  const settingsSaver = useRef<SettingsAutosave | null>(null);
+  if (!settingsSaver.current)
+    settingsSaver.current = new SettingsAutosave(
+      localStorage,
+      (settings) => api<Settings>('/api/settings', 'PUT', settings, undefined, { keepalive: true }),
+      (status, message) => {
+        setSettingsSaveStatus(status);
+        setSettingsSaveError(message || '');
+      },
+      (settings) => {
+        profileCache.current = null;
+        setMe((current) => (current ? { ...current, settings } : current));
+        void refreshCurrent.current();
+      },
+      import.meta.env.BASE_URL,
+    );
   const today = localDate(clock, me?.settings.timezone || 'Asia/Seoul');
   const selected = tab === 'history' ? date || today : today;
-  const hasSettingsChanges = !!(draft && me && !settingsEqual(draft, me.settings));
+  const hasSettingsChanges = settingsSaver.current.hasPending();
+  function updateDraft(next: Settings) {
+    settingsSaver.current?.update(next);
+    setDraftState(next);
+  }
   const refresh = useCallback(
     async (forceProfile = true) => {
       if (!token) return;
@@ -118,7 +141,8 @@ export function App() {
         setMe(current);
         if (result) setDay(result);
         if (month) setMonthData(month);
-        setDraft((d) => d || current.settings);
+        setDraftState(settingsSaver.current!.acceptServer(current.id, current.settings));
+        if (online && settingsSaver.current!.hasPending()) void settingsSaver.current!.flush();
         if (supportsPush()) {
           const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
           setDevice(!!(await reg?.pushManager.getSubscription()));
@@ -130,6 +154,8 @@ export function App() {
         if (e instanceof ApiError && e.status === 401) {
           session.clear();
           profileCache.current = null;
+          settingsSaver.current?.clearActive();
+          setDraftState(null);
           setToken(null);
           setMe(null);
           setDay(null);
@@ -138,11 +164,31 @@ export function App() {
         if (version === requestVersion.current) setLoading(false);
       }
     },
-    [token, tab, date],
+    [token, tab, date, online],
   );
+  refreshCurrent.current = refresh;
   useEffect(() => {
     void refresh(false);
   }, [refresh, today]);
+  useEffect(() => {
+    const flush = () => void settingsSaver.current?.flush();
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('online', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('online', flush);
+    };
+  }, []);
+  useEffect(() => {
+    if (settingsSaveStatus !== 'saved') return;
+    const timeout = window.setTimeout(() => setSettingsSaveStatus('idle'), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [settingsSaveStatus]);
   useEffect(() => {
     if (!token || !me) {
       profileCache.current = null;
@@ -465,7 +511,7 @@ export function App() {
                 onEnableNotifications={() => void run(enableDevice)}
                 onSettings={(section = 'goal') => {
                   setSettingsTab(section);
-                  setDraft((current) => current ?? me.settings);
+                  setDraftState(settingsSaver.current?.current() ?? me.settings);
                   setTab('settings');
                 }}
                 onHistory={() => {
@@ -535,7 +581,39 @@ export function App() {
                   />
                 ) : (
                   draft && (
-                    <SettingsTabs active={settingsTab} onChange={setSettingsTab}>
+                    <SettingsTabs
+                      active={settingsTab}
+                      onChange={(next) => {
+                        if (next !== settingsTab) void settingsSaver.current?.flush();
+                        setSettingsTab(next);
+                      }}
+                    >
+                      {(hasSettingsChanges || settingsSaveStatus === 'saved') && (
+                        <div
+                          className="settings-autosave"
+                          data-status={settingsSaveStatus}
+                          role="status"
+                        >
+                          <span>
+                            {settingsSaveStatus === 'saving'
+                              ? '설정을 저장하고 있어요…'
+                              : settingsSaveStatus === 'error'
+                                ? settingsSaveError || '설정을 저장하지 못했어요.'
+                                : settingsSaveStatus === 'saved'
+                                  ? '설정이 자동 저장됐어요.'
+                                  : '다른 화면으로 이동하면 자동 저장돼요.'}
+                          </span>
+                          {settingsSaveStatus === 'error' && (
+                            <button
+                              type="button"
+                              disabled={!online}
+                              onClick={() => void settingsSaver.current?.flush()}
+                            >
+                              다시 시도
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <form
                         id="water-settings-form"
                         className="settings-form"
@@ -553,14 +631,7 @@ export function App() {
                         }}
                         onSubmit={(event) => {
                           event.preventDefault();
-                          if (!hasSettingsChanges || busy || !online) return;
-                          void run(async () => {
-                            const result = await api<Settings>('/api/settings', 'PUT', draft);
-                            setDraft(result);
-                            setMe({ ...me, settings: result });
-                            setNotice('변경한 설정을 모두 저장했어요.');
-                            await refresh();
-                          });
+                          void settingsSaver.current?.flush();
                         }}
                       >
                         <SettingsPanel id="goal" active={settingsTab}>
@@ -600,7 +671,7 @@ export function App() {
                             </p>
                             <ReminderSchedule
                               value={draft.reminders}
-                              onChange={(reminders) => setDraft({ ...draft, reminders })}
+                              onChange={(reminders) => updateDraft({ ...draft, reminders })}
                             />
                             <fieldset>
                               <legend>알림 받을 요일</legend>
@@ -614,7 +685,7 @@ export function App() {
                                       type="checkbox"
                                       checked={draft.active_days.includes(i + 1)}
                                       onChange={(e) =>
-                                        setDraft({
+                                        updateDraft({
                                           ...draft,
                                           active_days: e.target.checked
                                             ? [...draft.active_days, i + 1].sort()
@@ -633,7 +704,9 @@ export function App() {
                                 required
                                 value={draft.timezone}
                                 list="timezones"
-                                onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}
+                                onChange={(e) =>
+                                  updateDraft({ ...draft, timezone: e.target.value })
+                                }
                               />
                               <datalist id="timezones">
                                 <option>Asia/Seoul</option>
@@ -656,7 +729,9 @@ export function App() {
                               <input
                                 type="checkbox"
                                 checked={draft.enabled}
-                                onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
+                                onChange={(e) =>
+                                  updateDraft({ ...draft, enabled: e.target.checked })
+                                }
                               />
                               <span>
                                 예약 알림 활성화
@@ -668,7 +743,10 @@ export function App() {
                                 type="checkbox"
                                 checked={draft.stop_when_goal_reached}
                                 onChange={(e) =>
-                                  setDraft({ ...draft, stop_when_goal_reached: e.target.checked })
+                                  updateDraft({
+                                    ...draft,
+                                    stop_when_goal_reached: e.target.checked,
+                                  })
                                 }
                               />
                               <span>하루 목표를 채우면 알림 쉬기</span>
@@ -679,7 +757,7 @@ export function App() {
                                 type="checkbox"
                                 checked={draft.partner_notifications ?? true}
                                 onChange={(event) =>
-                                  setDraft({
+                                  updateDraft({
                                     ...draft,
                                     partner_notifications: event.target.checked,
                                   })
@@ -945,19 +1023,6 @@ export function App() {
                           </div>
                         </section>
                       </SettingsPanel>
-                      {hasSettingsChanges && (
-                        <div className="settings-save">
-                          <span>저장하지 않은 변경사항이 있어요</span>
-                          <button
-                            className="primary"
-                            type="submit"
-                            form="water-settings-form"
-                            disabled={busy || !online}
-                          >
-                            {busy ? '저장 중…' : '변경사항 모두 저장'}
-                          </button>
-                        </div>
-                      )}
                     </SettingsTabs>
                   )
                 )}
@@ -977,8 +1042,15 @@ export function App() {
                 aria-current={tab === key ? 'page' : undefined}
                 className={tab === key ? 'active' : ''}
                 onClick={() => {
+                  if (tab === 'settings' && key !== 'settings') {
+                    void settingsSaver.current?.flush().then((saved) => {
+                      if (saved) setTab(key);
+                    });
+                    return;
+                  }
                   setTab(key);
-                  if (key === 'settings') setDraft((current) => current ?? me.settings);
+                  if (key === 'settings')
+                    setDraftState(settingsSaver.current?.current() ?? me.settings);
                 }}
               >
                 <Icon size={21} />
@@ -1143,11 +1215,9 @@ export function App() {
           title={editingAmount === 'daily_goal_ml' ? '하루 목표량을 정해요' : '한 잔의 양을 정해요'}
           label={editingAmount === 'daily_goal_ml' ? '하루 목표량' : '기본 한 잔 용량'}
           caption="나에게 맞는 물 마시기"
-          footer="적용한 뒤 설정 화면에서 변경사항을 저장해 주세요."
+          footer="적용하면 화면에 반영되고, 다른 화면으로 이동할 때 자동 저장돼요."
           onClose={() => setEditingAmount(null)}
-          onSave={(value) =>
-            setDraft((current) => current && { ...current, [editingAmount]: value })
-          }
+          onSave={(value) => updateDraft({ ...draft, [editingAmount]: value })}
         />
       )}
       {editing && (
