@@ -512,6 +512,7 @@ export function App() {
                   draft && (
                     <SettingsTabs active={settingsTab} onChange={setSettingsTab}>
                       <form
+                        id="water-settings-form"
                         className="settings-form"
                         onInvalidCapture={(event) => {
                           const panel = (event.target as HTMLElement)
@@ -833,16 +834,6 @@ export function App() {
                             </p>
                           </section>
                         </SettingsPanel>
-                        {hasSettingsChanges &&
-                          settingsTab !== 'together' &&
-                          settingsTab !== 'app' && (
-                            <div className="settings-save">
-                              <span>저장하지 않은 변경사항이 있어요</span>
-                              <button className="primary" disabled={busy || !online}>
-                                {busy ? '저장 중…' : '변경사항 모두 저장'}
-                              </button>
-                            </div>
-                          )}
                       </form>
                       <SettingsPanel id="together" active={settingsTab}>
                         <section className="card settings-card">
@@ -929,6 +920,19 @@ export function App() {
                           </div>
                         </section>
                       </SettingsPanel>
+                      {hasSettingsChanges && (
+                        <div className="settings-save">
+                          <span>저장하지 않은 변경사항이 있어요</span>
+                          <button
+                            className="primary"
+                            type="submit"
+                            form="water-settings-form"
+                            disabled={busy || !online}
+                          >
+                            {busy ? '저장 중…' : '변경사항 모두 저장'}
+                          </button>
+                        </div>
+                      )}
                     </SettingsTabs>
                   )
                 )}
