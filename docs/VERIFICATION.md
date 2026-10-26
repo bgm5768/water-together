@@ -3,6 +3,7 @@
 - 사용자가 테스트 알림 오른쪽에 `(B)`가 표시된다고 보고했다. 기존 `icon` 생략 처리는 큰 아이콘을 숨기지 못했다. [Chromium NotificationBuilderBase](https://chromium.googlesource.com/chromium/src/+/98bcd85e696b5a2b236e706204da0e9936d6e1b1/chrome/browser/notifications/android/java/src/org/chromium/chrome/browser/notifications/NotificationBuilderBase.java)의 `ensureNormalizedIcon`은 이미지가 없으면 출처 기반 아이콘을 생성한다. 운영 주소의 `B`가 표시된 원인으로 판단했다.
 - SW에 완전 투명한 96×96 PNG를 지정하고 생성 스크립트·PWA 캐시·콘텐츠 해시에 포함했다. 작은 물방울 badge와 기존 알림 동작은 유지한다. 기존 SW 검사는 새 아이콘 URL, PWA 검사는 모든 픽셀의 투명도와 캐시 포함을 확인하도록 갱신했다.
 - `npm run check`: 타입 검사, 기존 38개 테스트, 운영 `/water-together/` 경로의 프론트/PWA 빌드, Worker dry-run 모두 통과했다. 변경 코드의 Prettier와 `git diff --check`도 통과했다.
+- 운영 반영: `18c5400`, Pages `40251516621` 및 Checks `40251516595` 성공. 공개 앱의 두 알림 PNG는 로컬과 바이트 단위로 일치했고, SW는 빌드별 캐시 리비전을 제외한 내용이 일치했다. 투명 아이콘의 모든 9,216개 픽셀 alpha=0과 캐시 포함을 확인했다. 배포 SW 리비전은 `aef23e2045318664`. 결과는 `C:/Users/USER/water-ui-qa/notification-empty-icon-production/results.json`.
 - 실제 휴대폰 알림 외형은 미검증이다. 앱에서 새 버전을 적용한 뒤 기존 알림을 지우고 새 테스트 알림으로 확인해야 한다. 투명 이미지를 사용하므로 기기에 따라 오른쪽 빈 공간은 남을 수 있다.
 
 ## 2026-10-26 하루 목표와 기본 한 잔을 컵 드래그로 설정
