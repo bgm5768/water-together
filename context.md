@@ -14,6 +14,8 @@
 
 ## 2. 서비스와 현재 상태
 
+2026-10-26 알림 오른쪽 `(B)` 제거: 사용자가 실기기 테스트에서 큰 아이콘 대신 `(B)`가 보인다고 보고했다. `icon` 생략 시 Android Chrome이 사이트 이니셜을 만드는 경로를 확인해, SW에서 완전 투명한 96×96 `notification-empty-icon.png`를 명시하도록 수정했다. 생성 스크립트와 PWA 캐시·콘텐츠 해시에 포함하고 기존 SW/PWA 검사도 새 정책에 맞췄다. 작은 물방울 badge는 유지한다. 운영 경로 환경의 `npm run check`(38개 테스트·타입·프론트/PWA·Worker dry-run)와 코드 형식 검사를 통과했다. 이 변경은 아래 과거 기록의 “icon 옵션 제거” 구현을 대체한다. 실제 휴대폰 표시는 새 버전 적용 후 다시 확인해야 한다.
+
 2026-10-26 목표 설정 드래그: 하루 목표량과 기본 한 잔의 숫자 입력창을 물 마시기와 같은 컵 수면 드래그로 바꿨다. `MugSlider.tsx`를 물 마시기/설정에서 공유하며 `GoalAmount.tsx`는 읽기 전용 용량 표시와 ± 버튼을 제공한다. 목표는 100ml, 기본 한 잔은 10ml씩 드래그/버튼으로 조절하고, 방향키는 1ml(Shift 10ml)로 조절한다. 기존 범위 100–10,000ml / 1–3,000ml와 저장된 비정형 정수값을 유지한다. 컵 드래그는 설정 탭 스와이프와 충돌하지 않으며 설정 저장은 기존 변경 감지/명시적 저장 흐름을 유지한다. `npm run check`의 38개 테스트·타입·빌드와 Chrome 모의 API의 마우스/터치·6개 화면 크기·저장/실패/재시도·물 마시기 회귀 검증을 통과했다. Worker/DB 변경은 없다. 검증 스크립트와 결과는 `C:\Users\USER\water-ui-qa\goal-drag-review.mjs`, `goal-drag-review\results.json`.
 
 목표 설정 드래그 운영 반영: `6dc057d`, Pages `40250232482` 및 Checks `40250232408` 성공. 공개 앱에서도 모의 API를 사용해 같은 6개 화면 크기와 마우스/터치·저장·실패/재시도·물 마시기 초기값/기록 흐름을 검증했고 실행 오류는 0건이었다. 결과와 PNG는 `C:\Users\USER\water-ui-qa\goal-drag-production\`에 있다.
@@ -93,7 +95,7 @@
 
 - 현재 앱 아이콘: `icon-droplet-32.png`, `icon-droplet-180.png`, `icon-droplet-192.png`, `icon-droplet-512.png`, `favicon.ico`. 버튼과 같은 파랑 `#2888ef`와 배경 `#e4ebff`를 사용한다.
 - 이전 경로 호환용 `icon-water-*.png`, `icon-192.png`, `icon-512.png`, `icon.svg`도 같은 모양으로 생성한다.
-- 알림 메시지 왼쪽의 별도 큰 이미지는 제거했다. SW의 `showNotification`에 `icon`/`image`를 추가하지 않는다.
+- 알림 메시지 옆의 큰 이미지는 보이지 않아야 한다. `icon`을 생략하면 Android Chrome이 사이트 이니셜 `(B)`를 대신 표시하므로 `notification-empty-icon.png`(96×96, 완전 투명)를 지정한다. 이 파일은 캐시에도 포함한다. 별도 `image`는 추가하지 않는다.
 - **상태 표시줄 badge는 같은 물방울의 투명 배경 단색 `notification-droplet-badge.png`(96×96)**. 이전 `notification-badge.png` 경로도 유지한다. 불투명 컬러 아이콘을 badge로 쓰면 하얀 네모로 보이는 문제가 재발한다.
 - Manifest·Apple·favicon PNG·SW 캐시에는 새 `droplet` 경로를 사용한다. 설치된 런처 아이콘의 갱신 시점과 시스템 기본 알림 표시는 기기/브라우저에 달려 있다.
 

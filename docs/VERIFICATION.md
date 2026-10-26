@@ -1,3 +1,10 @@
+## 2026-10-26 알림 오른쪽 사이트 이니셜 숨김
+
+- 사용자가 테스트 알림 오른쪽에 `(B)`가 표시된다고 보고했다. 기존 `icon` 생략 처리는 큰 아이콘을 숨기지 못했다. [Chromium NotificationBuilderBase](https://chromium.googlesource.com/chromium/src/+/98bcd85e696b5a2b236e706204da0e9936d6e1b1/chrome/browser/notifications/android/java/src/org/chromium/chrome/browser/notifications/NotificationBuilderBase.java)의 `ensureNormalizedIcon`은 이미지가 없으면 출처 기반 아이콘을 생성한다. 운영 주소의 `B`가 표시된 원인으로 판단했다.
+- SW에 완전 투명한 96×96 PNG를 지정하고 생성 스크립트·PWA 캐시·콘텐츠 해시에 포함했다. 작은 물방울 badge와 기존 알림 동작은 유지한다. 기존 SW 검사는 새 아이콘 URL, PWA 검사는 모든 픽셀의 투명도와 캐시 포함을 확인하도록 갱신했다.
+- `npm run check`: 타입 검사, 기존 38개 테스트, 운영 `/water-together/` 경로의 프론트/PWA 빌드, Worker dry-run 모두 통과했다. 변경 코드의 Prettier와 `git diff --check`도 통과했다.
+- 실제 휴대폰 알림 외형은 미검증이다. 앱에서 새 버전을 적용한 뒤 기존 알림을 지우고 새 테스트 알림으로 확인해야 한다. 투명 이미지를 사용하므로 기기에 따라 오른쪽 빈 공간은 남을 수 있다.
+
 ## 2026-10-26 하루 목표와 기본 한 잔을 컵 드래그로 설정
 
 - 목표 설정의 두 숫자 입력창을 물 마시기와 같은 컵 드래그로 교체했다. 용량은 읽기 전용 숫자로 보여주며 목표 100ml / 한 잔 10ml씩 드래그와 ± 버튼으로 조절한다. 방향키 1ml, Shift+방향키 10ml, Home/End 최솟값/최댓값도 지원한다. 기존 저장 범위(100–10,000ml / 1–3,000ml)와 비정형 정수 초기값을 유지한다.

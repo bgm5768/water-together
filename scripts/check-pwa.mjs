@@ -37,7 +37,23 @@ assert.ok(
   'Opaque squares must never be used as status-bar badges',
 );
 assert.ok(sw.includes("badge: new URL('notification-droplet-badge.png'"));
-for (const path of ['notification-droplet-badge.png', 'audio/can-pour.mp3', 'brand/water-mark.svg'])
+const emptyIcon = await sharp(readFileSync(new URL('notification-empty-icon.png', dist)))
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+assert.equal(emptyIcon.info.width, 96);
+assert.equal(emptyIcon.info.height, 96);
+assert.ok(
+  emptyIcon.data.every((value, index) => index % 4 !== 3 || value === 0),
+  'The large notification icon must remain fully transparent',
+);
+assert.ok(sw.includes("icon: new URL('notification-empty-icon.png'"));
+for (const path of [
+  'notification-droplet-badge.png',
+  'notification-empty-icon.png',
+  'audio/can-pour.mp3',
+  'brand/water-mark.svg',
+])
   assert.ok(assets.includes(base + path), `Missing offline asset: ${path}`);
 assert.ok(html.includes('Content-Security-Policy'));
 assert.ok(html.includes(`href="${base}manifest.webmanifest"`));

@@ -39,6 +39,13 @@ const badge = await sharp(Buffer.from(droplet('white', 96)))
   .toBuffer();
 writeFileSync(new URL('notification-droplet-badge.png', publicDir), badge);
 writeFileSync(new URL('notification-badge.png', publicDir), badge);
+// A missing large notification icon triggers Chrome's site-initial fallback.
+const emptyIcon = await sharp({
+  create: { width: 96, height: 96, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+})
+  .png()
+  .toBuffer();
+writeFileSync(new URL('notification-empty-icon.png', publicDir), emptyIcon);
 const png = await sharp(source).resize(48, 48).png().toBuffer();
 const ico = Buffer.alloc(22);
 ico.writeUInt16LE(1, 2);

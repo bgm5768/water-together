@@ -94,7 +94,7 @@ test('repeated pushes alert again, survive bodyless payloads and only sound in o
   assert.notEqual(shown[2].options.tag, shown[0].options.tag);
   for (const { options } of shown) {
     assert.equal(options.badge, scope + 'notification-droplet-badge.png');
-    assert.equal(Object.hasOwn(options, 'icon'), false);
+    assert.equal(options.icon, scope + 'notification-empty-icon.png');
     assert.equal(Object.hasOwn(options, 'image'), false);
   }
 });

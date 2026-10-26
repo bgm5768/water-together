@@ -62,7 +62,9 @@ self.addEventListener('push', (event) => {
     (async () => {
       await self.registration.showNotification(title, {
         body,
-        // Keep the small app badge without a separate image beside the message.
+        // Omitting icon makes Android Chrome generate a site-initial icon ("B").
+        // A valid transparent image keeps that large icon visually empty.
+        icon: new URL('notification-empty-icon.png', self.registration.scope).href,
         badge: new URL('notification-droplet-badge.png', self.registration.scope).href,
         tag: message?.kind === 'partner' ? 'water-partner' : 'water-reminder',
         renotify: true,

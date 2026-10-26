@@ -18,6 +18,7 @@ export default defineConfig(({ mode, command }) => {
     'icon-droplet-512.png',
     'favicon.ico',
     'notification-droplet-badge.png',
+    'notification-empty-icon.png',
     'brand/water-mark.svg',
     'audio/can-pour.mp3',
   ];

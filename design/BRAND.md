@@ -5,9 +5,11 @@ surfaces. The launcher and notification badge use the same filled Lucide
 `Droplet` (stroke width 1.5) as the “물 마시기” button. The launcher drop uses the
 button's blue `#2888ef` on the app canvas `#e4ebff`. Run
 `node scripts/generate-icons.mjs` to generate `icon-droplet-*.png`, `icon.svg`,
-`favicon.ico`, compatible legacy icons and `notification-droplet-badge.png`.
-The badge is white on transparent; the notification has no separate `icon` or
-`image` beside its message. New icon URLs allow installed apps to detect the
+`favicon.ico`, compatible legacy icons, `notification-droplet-badge.png` and
+`notification-empty-icon.png`. The badge is white on transparent. The large
+notification `icon` uses the fully transparent 96×96 PNG to suppress Chrome's
+site-initial fallback; no `image` is supplied beside the message. Keep the empty
+icon in the precache so it remains available offline. New icon URLs allow installed apps to detect the
 updated assets. Actual launcher refresh timing depends on the browser and OS.
 
 The launch screen retains the blue and mint pair in
