@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import './launch.css';
 
+const launchSeenKey = `water-launch-seen:${import.meta.env.BASE_URL}`;
+
 export function LaunchScreen({
   ready,
   error,
@@ -11,6 +13,15 @@ export function LaunchScreen({
   onRetry?: () => void;
 }) {
   const started = useRef(performance.now());
+  const seen = useRef(
+    (() => {
+      try {
+        return localStorage.getItem(launchSeenKey) === 'yes';
+      } catch {
+        return false;
+      }
+    })(),
+  );
   const [phase, setPhase] = useState<'enter' | 'leave' | 'done'>('enter');
   useEffect(() => {
     if (!ready) {
@@ -19,9 +30,21 @@ export function LaunchScreen({
       return;
     }
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const delay = Math.max(0, (reduced ? 0 : 1050) - (performance.now() - started.current));
+    const delay = Math.max(
+      0,
+      (reduced || seen.current ? 0 : 1050) - (performance.now() - started.current),
+    );
+    const fade = reduced ? 0 : seen.current ? 180 : 450;
     const exit = window.setTimeout(() => setPhase('leave'), delay);
-    const done = window.setTimeout(() => setPhase('done'), delay + (reduced ? 0 : 450));
+    const done = window.setTimeout(() => {
+      setPhase('done');
+      seen.current = true;
+      try {
+        localStorage.setItem(launchSeenKey, 'yes');
+      } catch {
+        // Storage may be unavailable; keep the faster transition for this session.
+      }
+    }, delay + fade);
     return () => {
       clearTimeout(exit);
       clearTimeout(done);
@@ -30,7 +53,7 @@ export function LaunchScreen({
   if (phase === 'done' && ready) return null;
   return (
     <section
-      className={`launch-screen launch-${phase}`}
+      className={`launch-screen launch-${phase}${seen.current ? ' launch-returning' : ''}`}
       aria-label="Water Together 시작 화면"
       aria-busy={!ready && !error}
     >
