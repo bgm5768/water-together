@@ -29,6 +29,7 @@ import { LaunchScreen } from './LaunchScreen';
 import { MonthHistory } from './MonthHistory';
 import { CodeBox } from './CodeBox';
 import { RecoveryCode } from './RecoveryCode';
+import { settingsEqual } from './settings';
 
 type Codes = { recovery_code?: string; invite_code?: string };
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -75,6 +76,7 @@ export function App() {
   const deviceSetup = useRef<Promise<void> | null>(null);
   const today = localDate(clock, me?.settings.timezone || 'Asia/Seoul');
   const selected = tab === 'history' ? date || today : today;
+  const hasSettingsChanges = !!(draft && me && !settingsEqual(draft, me.settings));
   const refresh = useCallback(async () => {
     if (!token) return;
     const version = ++requestVersion.current;
@@ -519,6 +521,7 @@ export function App() {
                         }}
                         onSubmit={(event) => {
                           event.preventDefault();
+                          if (!hasSettingsChanges || busy || !online) return;
                           void run(async () => {
                             const result = await api<Settings>('/api/settings', 'PUT', draft);
                             setDraft(result);
@@ -850,19 +853,16 @@ export function App() {
                             </p>
                           </section>
                         </SettingsPanel>
-                        <div
-                          className="settings-save"
-                          hidden={settingsTab === 'together' || settingsTab === 'app'}
-                        >
-                          <span>
-                            {JSON.stringify(draft) === JSON.stringify(me.settings)
-                              ? '설정이 저장되어 있어요'
-                              : '저장하지 않은 변경사항이 있어요'}
-                          </span>
-                          <button className="primary" disabled={busy || !online}>
-                            {busy ? '저장 중…' : '변경사항 모두 저장'}
-                          </button>
-                        </div>
+                        {hasSettingsChanges &&
+                          settingsTab !== 'together' &&
+                          settingsTab !== 'app' && (
+                            <div className="settings-save">
+                              <span>저장하지 않은 변경사항이 있어요</span>
+                              <button className="primary" disabled={busy || !online}>
+                                {busy ? '저장 중…' : '변경사항 모두 저장'}
+                              </button>
+                            </div>
+                          )}
                       </form>
                       <SettingsPanel id="together" active={settingsTab}>
                         <section className="card settings-card">
