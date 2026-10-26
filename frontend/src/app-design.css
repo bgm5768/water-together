@@ -1929,32 +1929,6 @@ body {
 .goal-amount > .field-hint {
   margin: 7px 0 20px;
 }
-.settings-autosave {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid #dce8fa;
-  border-radius: 14px;
-  background: #f4f8ff;
-  padding: 10px 12px;
-  margin: 0 0 14px;
-  color: #526681;
-  font-size: 12px;
-}
-.settings-autosave[data-status='error'] {
-  background: #fff1ef;
-  border-color: #ffd2ca;
-  color: #9b3325;
-}
-.settings-autosave > button {
-  flex-shrink: 0;
-  margin: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-weight: 700;
-}
 .settings-members {
   list-style: none;
   padding: 0;

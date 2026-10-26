@@ -23,7 +23,6 @@ test('settings edits are batched until navigation and survive a reload', async (
       return settings;
     },
     () => {},
-    () => {},
   );
   first.acceptServer('user-a', defaults);
   first.update({ ...defaults, daily_goal_ml: 2100 });
@@ -37,7 +36,6 @@ test('settings edits are batched until navigation and survive a reload', async (
       sent.push(settings);
       return settings;
     },
-    () => {},
     () => {},
   );
   assert.equal(reopened.acceptServer('user-a', defaults).daily_goal_ml, 2200);
@@ -61,7 +59,6 @@ test('a newer edit waits for an in-flight save and wins', async () => {
       return sent.length === 1 ? firstResponse : Promise.resolve(settings);
     },
     () => {},
-    () => {},
   );
   saver.acceptServer('user-a', defaults);
   saver.update({ ...defaults, daily_goal_ml: 2100 });
@@ -74,6 +71,29 @@ test('a newer edit waits for an in-flight save and wins', async () => {
     sent.map((settings) => settings.daily_goal_ml),
     [2100, 2200],
   );
+  assert.equal(store.values.size, 0);
+});
+
+test('a stale profile response during background saving keeps the visible draft', async () => {
+  const store = memoryStore();
+  let finishSave!: (settings: Settings) => void;
+  const response = new Promise<Settings>((resolve) => {
+    finishSave = resolve;
+  });
+  const saver = new SettingsAutosave(
+    store,
+    () => response,
+    () => {},
+  );
+  saver.acceptServer('user-a', defaults);
+  const changed = { ...defaults, daily_goal_ml: 2200 };
+  saver.update(changed);
+  const saving = saver.flush();
+
+  assert.equal(saver.acceptServer('user-a', defaults).daily_goal_ml, 2200);
+  assert.equal(saver.hasPending(), true);
+  finishSave(changed);
+  assert.equal(await saving, true);
   assert.equal(store.values.size, 0);
 });
 
@@ -90,7 +110,6 @@ test('reverting a value while its earlier save is in flight saves the reversion'
       sent.push(settings);
       return sent.length === 1 ? firstResponse : Promise.resolve(settings);
     },
-    () => {},
     () => {},
   );
   saver.acceptServer('user-a', defaults);
@@ -116,7 +135,6 @@ test('a failed save keeps the draft for a later retry', async () => {
       if (fail) throw new Error('offline');
       return settings;
     },
-    () => {},
     () => {},
   );
   saver.acceptServer('user-a', defaults);

@@ -36,10 +36,7 @@ export async function api<T>(
       signal: AbortSignal.timeout(20000),
     });
   } catch {
-    throw new ApiError(
-      '서버에 연결하지 못했어요. 변경 내용의 저장 여부를 새로고침으로 확인해 주세요.',
-      0,
-    );
+    throw new ApiError('서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.', 0);
   }
   const data = await response.json();
   if (!response.ok) throw new ApiError(data.error || '요청을 처리하지 못했어요.', response.status);

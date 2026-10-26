@@ -30,7 +30,11 @@ export function MonthHistory({
   const start = DateTime.fromISO(selected).startOf('month');
   const key = start.toFormat('yyyy-MM');
   const members = month
-    ? [...month.members].sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id))
+    ? month.members
+        .map((member) =>
+          member.id === me.id ? { ...member, daily_goal_ml: me.settings.daily_goal_ml } : member,
+        )
+        .sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id))
     : [];
   const partner = members.find((m) => m.id !== me.id);
   const days =

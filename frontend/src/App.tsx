@@ -30,7 +30,7 @@ import { LaunchScreen } from './LaunchScreen';
 import { MonthHistory } from './MonthHistory';
 import { CodeBox } from './CodeBox';
 import { RecoveryCode } from './RecoveryCode';
-import { SettingsAutosave, type SettingsSaveStatus } from './settings-autosave';
+import { SettingsAutosave } from './settings-autosave';
 import { GoalAmount } from './GoalAmount';
 import { AmountSheet } from './AmountSheet';
 
@@ -70,8 +70,6 @@ export function App() {
   const [deleting, setDeleting] = useState<WaterLog | null>(null),
     [draft, setDraftState] = useState<Settings | null>(null),
     [device, setDevice] = useState(false);
-  const [settingsSaveStatus, setSettingsSaveStatus] = useState<SettingsSaveStatus>('idle');
-  const [settingsSaveError, setSettingsSaveError] = useState('');
   const [permission, setPermission] = useState(
       supportsPush() ? Notification.permission : 'unsupported',
     ),
@@ -89,23 +87,23 @@ export function App() {
     settingsSaver.current = new SettingsAutosave(
       localStorage,
       (settings) => api<Settings>('/api/settings', 'PUT', settings, undefined, { keepalive: true }),
-      (status, message) => {
-        setSettingsSaveStatus(status);
-        setSettingsSaveError(message || '');
-      },
       (settings) => {
         profileCache.current = null;
-        setMe((current) => (current ? { ...current, settings } : current));
+        setMe((current) =>
+          current
+            ? { ...current, settings: settingsSaver.current?.current() ?? settings }
+            : current,
+        );
         void refreshCurrent.current();
       },
       import.meta.env.BASE_URL,
     );
   const today = localDate(clock, me?.settings.timezone || 'Asia/Seoul');
   const selected = tab === 'history' ? date || today : today;
-  const hasSettingsChanges = settingsSaver.current.hasPending();
   function updateDraft(next: Settings) {
     settingsSaver.current?.update(next);
     setDraftState(next);
+    setMe((current) => (current ? { ...current, settings: next } : current));
   }
   const refresh = useCallback(
     async (forceProfile = true) => {
@@ -138,10 +136,11 @@ export function App() {
         if (version !== requestVersion.current) return;
         if (current !== usableProfile)
           profileCache.current = { token, value: current, fetchedAt: Date.now() };
-        setMe(current);
+        const activeSettings = settingsSaver.current!.acceptServer(current.id, current.settings);
+        setMe({ ...current, settings: activeSettings });
         if (result) setDay(result);
         if (month) setMonthData(month);
-        setDraftState(settingsSaver.current!.acceptServer(current.id, current.settings));
+        setDraftState(activeSettings);
         if (online && settingsSaver.current!.hasPending()) void settingsSaver.current!.flush();
         if (supportsPush()) {
           const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
@@ -185,14 +184,9 @@ export function App() {
     };
   }, []);
   useEffect(() => {
-    if (settingsSaveStatus !== 'saved') return;
-    const timeout = window.setTimeout(() => setSettingsSaveStatus('idle'), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [settingsSaveStatus]);
-  useEffect(() => {
     if (!token || !me) {
       profileCache.current = null;
-    } else if (profileCache.current?.token === token) {
+    } else if (profileCache.current?.token === token && !settingsSaver.current?.hasPending()) {
       profileCache.current.value = me;
     }
   }, [token, me]);
@@ -418,7 +412,9 @@ export function App() {
     setError('');
     setEditingName(true);
   };
-  const own = visibleDay?.members.find((m) => m.id === me?.id),
+  const storedOwn = visibleDay?.members.find((m) => m.id === me?.id);
+  const own =
+      storedOwn && me ? { ...storedOwn, daily_goal_ml: me.settings.daily_goal_ml } : storedOwn,
     partner = visibleDay?.members.find((m) => m.id !== me?.id);
   const dailyLogs = visibleDay?.logs.filter((l) => tab === 'history' || l.user_id === me?.id) || [];
   const notificationsConnected = device && permission === 'granted' && !!me?.subscription_count;
@@ -588,32 +584,6 @@ export function App() {
                         setSettingsTab(next);
                       }}
                     >
-                      {(hasSettingsChanges || settingsSaveStatus === 'saved') && (
-                        <div
-                          className="settings-autosave"
-                          data-status={settingsSaveStatus}
-                          role="status"
-                        >
-                          <span>
-                            {settingsSaveStatus === 'saving'
-                              ? '설정을 저장하고 있어요…'
-                              : settingsSaveStatus === 'error'
-                                ? settingsSaveError || '설정을 저장하지 못했어요.'
-                                : settingsSaveStatus === 'saved'
-                                  ? '설정이 자동 저장됐어요.'
-                                  : '다른 화면으로 이동하면 자동 저장돼요.'}
-                          </span>
-                          {settingsSaveStatus === 'error' && (
-                            <button
-                              type="button"
-                              disabled={!online}
-                              onClick={() => void settingsSaver.current?.flush()}
-                            >
-                              다시 시도
-                            </button>
-                          )}
-                        </div>
-                      )}
                       <form
                         id="water-settings-form"
                         className="settings-form"
@@ -1043,9 +1013,8 @@ export function App() {
                 className={tab === key ? 'active' : ''}
                 onClick={() => {
                   if (tab === 'settings' && key !== 'settings') {
-                    void settingsSaver.current?.flush().then((saved) => {
-                      if (saved) setTab(key);
-                    });
+                    void settingsSaver.current?.flush();
+                    setTab(key);
                     return;
                   }
                   setTab(key);
@@ -1215,7 +1184,7 @@ export function App() {
           title={editingAmount === 'daily_goal_ml' ? '하루 목표량을 정해요' : '한 잔의 양을 정해요'}
           label={editingAmount === 'daily_goal_ml' ? '하루 목표량' : '기본 한 잔 용량'}
           caption="나에게 맞는 물 마시기"
-          footer="적용하면 화면에 반영되고, 다른 화면으로 이동할 때 자동 저장돼요."
+          footer="선택한 용량이 목표 설정에 바로 반영돼요."
           onClose={() => setEditingAmount(null)}
           onSave={(value) => updateDraft({ ...draft, [editingAmount]: value })}
         />

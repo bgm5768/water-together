@@ -1,7 +1,6 @@
 import type { Settings } from '../../shared/types';
 import { settingsEqual } from './settings';
 
-export type SettingsSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const key = (scope: string, id: string) => `water-settings-pending:${scope}:${id}`;
 
@@ -33,7 +32,6 @@ export class SettingsAutosave {
   constructor(
     private store: Store,
     private send: (settings: Settings) => Promise<Settings>,
-    private onStatus: (status: SettingsSaveStatus, error?: string) => void,
     private onSaved: (settings: Settings) => void,
     private scope = '/',
   ) {}
@@ -48,11 +46,7 @@ export class SettingsAutosave {
       this.saved = settings;
       if (wasClean) this.draft = settings;
     }
-    if (this.hasPending()) this.onStatus('pending');
-    else {
-      this.removePending();
-      this.onStatus('idle');
-    }
+    if (!this.hasPending()) this.removePending();
     return this.draft!;
   }
 
@@ -62,7 +56,6 @@ export class SettingsAutosave {
     this.draft = null;
     this.sending = null;
     this.inFlight = null;
-    this.onStatus('idle');
   }
 
   update(settings: Settings) {
@@ -70,11 +63,7 @@ export class SettingsAutosave {
     this.draft = settings;
     if (this.hasPending()) {
       this.storePending();
-      this.onStatus('pending');
-    } else {
-      this.removePending();
-      this.onStatus('idle');
-    }
+    } else this.removePending();
   }
 
   current(): Settings | null {
@@ -99,28 +88,18 @@ export class SettingsAutosave {
     const id = this.userId;
     const snapshot = this.draft!;
     this.sending = snapshot;
-    this.onStatus('saving');
     const task = this.send(snapshot)
       .then((result) => {
         if (this.userId !== id) return false;
         this.saved = result;
         this.onSaved(result);
-        if (this.hasPending()) {
-          this.storePending();
-          this.onStatus('pending');
-        } else {
-          this.removePending();
-          this.onStatus('saved');
-        }
+        if (this.hasPending()) this.storePending();
+        else this.removePending();
         return true;
       })
-      .catch((error: unknown) => {
-        if (this.userId === id) {
-          if (this.draft && this.saved && settingsEqual(this.draft, this.saved)) {
-            this.removePending();
-            this.onStatus('idle');
-          } else this.onStatus('error', (error as Error).message || '설정을 저장하지 못했어요.');
-        }
+      .catch(() => {
+        if (this.userId === id && this.draft && this.saved && settingsEqual(this.draft, this.saved))
+          this.removePending();
         return false;
       })
       .finally(() => {
