@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { DateTime } from 'luxon';
 import { ArrowLeft, ArrowRight, Droplet, Pencil, Trash2 } from 'lucide-react';
 import type { DayData, Me, MonthData, WaterLog } from '../../shared/types';
@@ -27,6 +28,7 @@ export function MonthHistory({
   onEdit: (log: WaterLog) => void;
   onDelete: (log: WaterLog) => void;
 }) {
+  const selectedSummary = useRef<HTMLDivElement>(null);
   const start = DateTime.fromISO(selected).startOf('month');
   const key = start.toFormat('yyyy-MM');
   const members = month
@@ -45,6 +47,20 @@ export function MonthHistory({
   const completedDrops = days.filter(
     (d) => d.date <= today && goalProgress(d.totals[me.id] ?? 0, ownGoal).complete,
   ).length;
+  const selectedTotals = month?.days.find((d) => d.date === selected)?.totals;
+  const selectCalendarDate = (date: string) => {
+    onSelect(date);
+    if (window.matchMedia('(max-width: 480px)').matches) {
+      requestAnimationFrame(() =>
+        selectedSummary.current?.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+          block: 'nearest',
+        }),
+      );
+    }
+  };
   const shift = (delta: number) => {
     const next = start.plus({ months: delta });
     onSelect(next.toFormat('yyyy-MM') === today.slice(0, 7) ? today : next.toISODate()!);
@@ -133,7 +149,8 @@ export function MonthHistory({
             <i />
             상대
           </span>
-          <small>단위 ml</small>
+          <small className="calendar-legend-desktop">단위 ml</small>
+          <small className="calendar-legend-mobile">표시는 기록한 날</small>
         </div>
         <div className="calendar-weekdays" aria-hidden="true">
           {'일월화수목금토'.split('').map((d) => (
@@ -153,27 +170,47 @@ export function MonthHistory({
               <button
                 type="button"
                 key={d.date}
-                className={`calendar-day ${d.date === selected ? 'selected' : ''} ${d.date === today ? 'is-today' : ''}`}
+                className={`calendar-day ${d.date === selected ? 'selected' : ''} ${d.date === today ? 'is-today' : ''} ${completed ? 'complete' : ''}`}
                 disabled={future}
                 aria-pressed={d.date === selected}
                 aria-label={`${Number(d.date.slice(-2))}일${month && !future ? `, 나 ${mine}ml${theirs === null ? '' : `, 상대 ${theirs}ml`}${completed ? ', 내 물방울 완성' : ''}` : ''}`}
-                onClick={() => onSelect(d.date)}
+                onClick={() => selectCalendarDate(d.date)}
               >
                 <span className="calendar-date">
                   <span className="calendar-number">{Number(d.date.slice(-2))}</span>
                   {completed && <MilestoneDrop percent={100} className="calendar-completion" />}
                 </span>
-                <span className={`calendar-amount person-mine ${completed ? 'goal-met' : ''}`}>
-                  {!month ? '·' : future ? '—' : fmt(mine)}
-                </span>
-                <span
-                  className={`calendar-amount person-partner ${partner && theirs! >= partner.daily_goal_ml ? 'goal-met' : ''}`}
-                >
-                  {!month ? '·' : future || theirs === null ? '—' : fmt(theirs)}
+                <span className="calendar-values" aria-hidden="true">
+                  <span
+                    className={`calendar-amount person-mine ${mine > 0 && month && !future ? 'has-water' : ''} ${completed ? 'goal-met' : ''}`}
+                  >
+                    {month && !future && mine > 0 ? fmt(mine) : ''}
+                  </span>
+                  <span
+                    className={`calendar-amount person-partner ${theirs !== null && theirs > 0 && month && !future ? 'has-water' : ''} ${partner && theirs! >= partner.daily_goal_ml ? 'goal-met' : ''}`}
+                  >
+                    {month && !future && theirs !== null && theirs > 0 ? fmt(theirs) : ''}
+                  </span>
                 </span>
               </button>
             );
           })}
+        </div>
+        <div
+          className="calendar-selected-summary"
+          ref={selectedSummary}
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <strong>{DateTime.fromISO(selected).setLocale('ko').toFormat('M월 d일')}</strong>
+          <span className="person-mine">
+            나 <b>{selectedTotals ? `${fmt(selectedTotals[me.id] ?? 0)} ml` : '—'}</b>
+          </span>
+          {partner && (
+            <span className="person-partner">
+              상대 <b>{selectedTotals ? `${fmt(selectedTotals[partner.id] ?? 0)} ml` : '—'}</b>
+            </span>
+          )}
         </div>
         <p className="calendar-note">
           {me.settings.timezone} 기준 · 평균은 1ml 이상 기록한 날만 계산
