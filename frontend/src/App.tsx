@@ -77,54 +77,79 @@ export function App() {
   const requestVersion = useRef(0),
     mutation = useRef(false),
     newLogKey = useRef(crypto.randomUUID());
+  const profileCache = useRef<{ token: string; value: Me; fetchedAt: number } | null>(null);
   const automaticSetup = useRef('');
   const reminderOffered = useRef('');
   const deviceSetup = useRef<Promise<void> | null>(null);
   const today = localDate(clock, me?.settings.timezone || 'Asia/Seoul');
   const selected = tab === 'history' ? date || today : today;
   const hasSettingsChanges = !!(draft && me && !settingsEqual(draft, me.settings));
-  const refresh = useCallback(async () => {
-    if (!token) return;
-    const version = ++requestVersion.current;
-    setLoading(true);
-    try {
-      const current = await api<Me>('/api/me');
-      const selectedDate =
-        tab === 'history'
-          ? date || localDate(Date.now(), current.settings.timezone)
-          : localDate(Date.now(), current.settings.timezone);
-      const [result, month] = await Promise.all([
-        api<DayData>('/api/day?date=' + selectedDate),
-        tab === 'history'
-          ? api<MonthData>('/api/month?month=' + selectedDate.slice(0, 7))
-          : Promise.resolve(null),
-      ]);
-      if (version !== requestVersion.current) return;
-      setMe(current);
-      setDay(result);
-      if (month) setMonthData(month);
-      setDraft((d) => d || current.settings);
-      if (supportsPush()) {
-        const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
-        setDevice(!!(await reg?.pushManager.getSubscription()));
-        setPermission(Notification.permission);
+  const refresh = useCallback(
+    async (forceProfile = true) => {
+      if (!token) return;
+      const version = ++requestVersion.current;
+      const cached = profileCache.current;
+      const usableProfile =
+        !forceProfile && cached?.token === token && Date.now() - cached.fetchedAt < 60_000
+          ? cached.value
+          : null;
+      if (tab === 'settings' && usableProfile) {
+        setLoading(false);
+        return;
       }
-    } catch (e) {
-      if (version !== requestVersion.current) return;
-      setError((e as Error).message);
-      if (e instanceof ApiError && e.status === 401) {
-        session.clear();
-        setToken(null);
-        setMe(null);
-        setDay(null);
+      setLoading(true);
+      try {
+        // The API chooses today's date in the user's timezone when date is omitted.
+        // This lets the independent profile and record requests start together.
+        let [current, result, month] = await Promise.all([
+          usableProfile ? Promise.resolve(usableProfile) : api<Me>('/api/me'),
+          tab === 'settings'
+            ? Promise.resolve(null)
+            : api<DayData>('/api/day' + (tab === 'history' && date ? '?date=' + date : '')),
+          tab === 'history'
+            ? api<MonthData>('/api/month' + (date ? '?month=' + date.slice(0, 7) : ''))
+            : Promise.resolve(null),
+        ]);
+        if (usableProfile && result && result.timezone !== current.settings.timezone)
+          current = await api<Me>('/api/me');
+        if (version !== requestVersion.current) return;
+        if (current !== usableProfile)
+          profileCache.current = { token, value: current, fetchedAt: Date.now() };
+        setMe(current);
+        if (result) setDay(result);
+        if (month) setMonthData(month);
+        setDraft((d) => d || current.settings);
+        if (supportsPush()) {
+          const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
+          setDevice(!!(await reg?.pushManager.getSubscription()));
+          setPermission(Notification.permission);
+        }
+      } catch (e) {
+        if (version !== requestVersion.current) return;
+        setError((e as Error).message);
+        if (e instanceof ApiError && e.status === 401) {
+          session.clear();
+          profileCache.current = null;
+          setToken(null);
+          setMe(null);
+          setDay(null);
+        }
+      } finally {
+        if (version === requestVersion.current) setLoading(false);
       }
-    } finally {
-      if (version === requestVersion.current) setLoading(false);
-    }
-  }, [token, tab, date, today]);
+    },
+    [token, tab, date],
+  );
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void refresh(false);
+  }, [refresh, today]);
+  useEffect(() => {
+    if (!token || !me) {
+      profileCache.current = null;
+    } else if (profileCache.current?.token === token) {
+      profileCache.current.value = me;
+    }
+  }, [token, me]);
   useEffect(() => {
     if (
       !token ||
